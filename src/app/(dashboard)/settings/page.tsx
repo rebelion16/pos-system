@@ -1,0 +1,369 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import {
+    Store,
+    Palette,
+    Printer,
+    Calculator,
+    Save,
+    Check,
+    Sun,
+    Moon
+} from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
+import { Button } from '@/components/ui'
+import styles from './settings.module.css'
+
+interface SettingsData {
+    id: string
+    store_name: string
+    store_address: string | null
+    store_phone: string | null
+    store_logo: string | null
+    tax_rate: number
+    currency: string
+    theme: string
+    printer_enabled: boolean
+    printer_name: string | null
+}
+
+type ThemeMode = 'light' | 'dark'
+type ThemeColor = 'blue' | 'green' | 'pink' | 'orange' | 'purple'
+
+export default function SettingsPage() {
+    const [settings, setSettings] = useState<SettingsData | null>(null)
+    const [loading, setLoading] = useState(true)
+    const [saving, setSaving] = useState(false)
+    const [showSaved, setShowSaved] = useState(false)
+
+    // Form states
+    const [storeName, setStoreName] = useState('')
+    const [storeAddress, setStoreAddress] = useState('')
+    const [storePhone, setStorePhone] = useState('')
+    const [taxRate, setTaxRate] = useState(0)
+    const [themeMode, setThemeMode] = useState<ThemeMode>('light')
+    const [themeColor, setThemeColor] = useState<ThemeColor>('blue')
+    const [printerEnabled, setPrinterEnabled] = useState(false)
+    const [printerName, setPrinterName] = useState('')
+
+    const supabase = createClient()
+
+    useEffect(() => {
+        fetchSettings()
+    }, [])
+
+    useEffect(() => {
+        // Apply theme to document
+        document.documentElement.setAttribute('data-theme', themeMode)
+        document.documentElement.setAttribute('data-theme-color', themeColor)
+    }, [themeMode, themeColor])
+
+    const fetchSettings = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('settings')
+                .select('*')
+                .limit(1)
+                .single()
+
+            if (error && error.code !== 'PGRST116') {
+                console.error('Error fetching settings:', error)
+                return
+            }
+
+            if (data) {
+                setSettings(data)
+                setStoreName(data.store_name || '')
+                setStoreAddress(data.store_address || '')
+                setStorePhone(data.store_phone || '')
+                setTaxRate(data.tax_rate || 0)
+                setPrinterEnabled(data.printer_enabled || false)
+                setPrinterName(data.printer_name || '')
+
+                // Parse theme
+                const [mode, color] = (data.theme || 'light-blue').split('-')
+                setThemeMode(mode as ThemeMode || 'light')
+                setThemeColor(color as ThemeColor || 'blue')
+            }
+        } catch (error) {
+            console.error('Error:', error)
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const saveSettings = async () => {
+        setSaving(true)
+        try {
+            const themeValue = `${themeMode}-${themeColor}`
+            const settingsData = {
+                store_name: storeName,
+                store_address: storeAddress || null,
+                store_phone: storePhone || null,
+                tax_rate: taxRate,
+                theme: themeValue,
+                printer_enabled: printerEnabled,
+                printer_name: printerName || null,
+                updated_at: new Date().toISOString()
+            }
+
+            if (settings?.id) {
+                // Update existing
+                const { error } = await supabase
+                    .from('settings')
+                    .update(settingsData)
+                    .eq('id', settings.id)
+
+                if (error) throw error
+            } else {
+                // Insert new
+                const { error } = await supabase
+                    .from('settings')
+                    .insert([{ ...settingsData, currency: 'IDR' }])
+
+                if (error) throw error
+            }
+
+            setShowSaved(true)
+            setTimeout(() => setShowSaved(false), 3000)
+        } catch (error) {
+            console.error('Error saving settings:', error)
+        } finally {
+            setSaving(false)
+        }
+    }
+
+    if (loading) {
+        return (
+            <div className={styles.loading}>
+                <div className="spinner spinner-lg"></div>
+                <p>Memuat pengaturan...</p>
+            </div>
+        )
+    }
+
+    return (
+        <div className={styles.container}>
+            <div className={styles.header}>
+                <h1 className={styles.title}>Pengaturan</h1>
+                <p className={styles.subtitle}>
+                    Kelola pengaturan toko dan aplikasi Anda
+                </p>
+            </div>
+
+            {/* Store Information */}
+            <div className={styles.section}>
+                <div className={styles.sectionHeader}>
+                    <div className={styles.sectionIcon}>
+                        <Store size={20} />
+                    </div>
+                    <div>
+                        <h3 className={styles.sectionTitle}>Informasi Toko</h3>
+                        <p className={styles.sectionDesc}>
+                            Pengaturan dasar toko Anda
+                        </p>
+                    </div>
+                </div>
+                <div className={styles.sectionBody}>
+                    <div className={styles.formGrid}>
+                        <div className={styles.formGroup}>
+                            <label className={styles.label}>Nama Toko</label>
+                            <input
+                                type="text"
+                                className={styles.input}
+                                value={storeName}
+                                onChange={(e) => setStoreName(e.target.value)}
+                                placeholder="Nama usaha Anda"
+                            />
+                        </div>
+                        <div className={styles.formGroup}>
+                            <label className={styles.label}>No. Telepon</label>
+                            <input
+                                type="text"
+                                className={styles.input}
+                                value={storePhone}
+                                onChange={(e) => setStorePhone(e.target.value)}
+                                placeholder="08xx-xxxx-xxxx"
+                            />
+                        </div>
+                        <div className={styles.formGroup} style={{ gridColumn: '1 / -1' }}>
+                            <label className={styles.label}>Alamat</label>
+                            <textarea
+                                className={styles.textarea}
+                                value={storeAddress}
+                                onChange={(e) => setStoreAddress(e.target.value)}
+                                placeholder="Alamat lengkap toko"
+                            />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Theme Settings */}
+            <div className={styles.section}>
+                <div className={styles.sectionHeader}>
+                    <div className={styles.sectionIcon}>
+                        <Palette size={20} />
+                    </div>
+                    <div>
+                        <h3 className={styles.sectionTitle}>Tampilan</h3>
+                        <p className={styles.sectionDesc}>
+                            Sesuaikan tampilan aplikasi
+                        </p>
+                    </div>
+                </div>
+                <div className={styles.sectionBody}>
+                    <div className={styles.formGroup}>
+                        <label className={styles.label}>Mode Tema</label>
+                        <div className={styles.themeGrid}>
+                            <div
+                                className={`${styles.themeCard} ${themeMode === 'light' ? styles.themeCardActive : ''}`}
+                                onClick={() => setThemeMode('light')}
+                            >
+                                <div className={`${styles.themePreview} ${styles.themePreviewLight}`}>
+                                    <Sun size={16} style={{ margin: 'auto', color: '#f59e0b' }} />
+                                </div>
+                                <span className={styles.themeLabel}>Terang</span>
+                            </div>
+                            <div
+                                className={`${styles.themeCard} ${themeMode === 'dark' ? styles.themeCardActive : ''}`}
+                                onClick={() => setThemeMode('dark')}
+                            >
+                                <div className={`${styles.themePreview} ${styles.themePreviewDark}`}>
+                                    <Moon size={16} style={{ margin: 'auto', color: '#60a5fa' }} />
+                                </div>
+                                <span className={styles.themeLabel}>Gelap</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className={styles.formGroup} style={{ marginTop: '1.5rem' }}>
+                        <label className={styles.label}>
+                            Warna Tema
+                            <span className={styles.labelHint}> (primary color)</span>
+                        </label>
+                        <div className={styles.colorGrid}>
+                            {(['blue', 'green', 'pink', 'orange', 'purple'] as ThemeColor[]).map((color) => (
+                                <div
+                                    key={color}
+                                    className={`${styles.colorOption} ${styles[`color${color.charAt(0).toUpperCase() + color.slice(1)}`]} ${themeColor === color ? styles.colorOptionActive : ''
+                                        }`}
+                                    onClick={() => setThemeColor(color)}
+                                >
+                                    {themeColor === color && <Check size={20} />}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Tax Settings */}
+            <div className={styles.section}>
+                <div className={styles.sectionHeader}>
+                    <div className={styles.sectionIcon}>
+                        <Calculator size={20} />
+                    </div>
+                    <div>
+                        <h3 className={styles.sectionTitle}>Pajak & Harga</h3>
+                        <p className={styles.sectionDesc}>
+                            Pengaturan pajak penjualan
+                        </p>
+                    </div>
+                </div>
+                <div className={styles.sectionBody}>
+                    <div className={styles.formGroup}>
+                        <label className={styles.label}>Tarif Pajak (PPN)</label>
+                        <div className={styles.taxInput}>
+                            <input
+                                type="number"
+                                className={styles.input}
+                                value={taxRate}
+                                onChange={(e) => setTaxRate(Number(e.target.value))}
+                                min={0}
+                                max={100}
+                                step={0.5}
+                            />
+                            <span className={styles.taxSuffix}>%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Printer Settings */}
+            <div className={styles.section}>
+                <div className={styles.sectionHeader}>
+                    <div className={styles.sectionIcon}>
+                        <Printer size={20} />
+                    </div>
+                    <div>
+                        <h3 className={styles.sectionTitle}>Printer Struk</h3>
+                        <p className={styles.sectionDesc}>
+                            Konfigurasi printer thermal
+                        </p>
+                    </div>
+                </div>
+                <div className={styles.sectionBody}>
+                    <div className={styles.printerStatus}>
+                        <div className={`${styles.statusDot} ${printerEnabled ? styles.statusDotActive : ''}`} />
+                        <span className={styles.statusText}>
+                            {printerEnabled ? 'Printer aktif' : 'Printer tidak aktif'}
+                        </span>
+                    </div>
+
+                    <div className={styles.toggleRow}>
+                        <div className={styles.toggleInfo}>
+                            <span className={styles.toggleLabel}>Aktifkan Printer</span>
+                            <p className={styles.toggleDesc}>
+                                Cetak struk otomatis setelah transaksi selesai
+                            </p>
+                        </div>
+                        <div
+                            className={`${styles.toggle} ${printerEnabled ? styles.toggleActive : ''}`}
+                            onClick={() => setPrinterEnabled(!printerEnabled)}
+                        />
+                    </div>
+
+                    {printerEnabled && (
+                        <div className={styles.formGroup} style={{ marginTop: '1rem' }}>
+                            <label className={styles.label}>Nama Printer</label>
+                            <input
+                                type="text"
+                                className={styles.input}
+                                value={printerName}
+                                onChange={(e) => setPrinterName(e.target.value)}
+                                placeholder="Contoh: POS-58, XP-58"
+                            />
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Save Button */}
+            <div className={styles.actions}>
+                <Button variant="primary" onClick={saveSettings} disabled={saving}>
+                    {saving ? (
+                        <>
+                            <div className="spinner" style={{ width: '16px', height: '16px' }} />
+                            Menyimpan...
+                        </>
+                    ) : (
+                        <>
+                            <Save size={18} />
+                            Simpan Pengaturan
+                        </>
+                    )}
+                </Button>
+            </div>
+
+            {/* Saved Toast */}
+            {showSaved && (
+                <div className={styles.toast}>
+                    <Check size={20} />
+                    Pengaturan berhasil disimpan!
+                </div>
+            )}
+        </div>
+    )
+}

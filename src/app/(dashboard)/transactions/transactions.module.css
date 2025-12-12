@@ -1,0 +1,130 @@
+.loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 400px;
+    gap: 1rem;
+}
+
+.loading p {
+    color: var(--text-secondary);
+}
+
+.container {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.title {
+    font-size: 1.75rem;
+    font-weight: 700;
+}
+
+.subtitle {
+    color: var(--text-secondary);
+    font-size: 0.9375rem;
+    margin-top: 0.25rem;
+}
+
+.filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.searchBox {
+    position: relative;
+    flex: 1;
+    min-width: 200px;
+}
+
+.searchIcon {
+    position: absolute;
+    left: 0.875rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+}
+
+.searchInput {
+    width: 100%;
+    padding: 0.625rem 0.875rem 0.625rem 2.75rem;
+    font-size: 0.875rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+}
+
+.searchInput:focus {
+    outline: none;
+    border-color: var(--primary-500);
+}
+
+.dateFilter {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0 0.875rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--text-secondary);
+}
+
+.dateInput {
+    padding: 0.625rem 0;
+    border: none;
+    background: transparent;
+    font-size: 0.875rem;
+}
+
+.dateInput:focus {
+    outline: none;
+}
+
+.invoice {
+    font-family: monospace;
+    font-size: 0.8125rem;
+    font-weight: 500;
+}
+
+.amount {
+    font-weight: 600;
+    color: var(--success-600);
+}
+
+.emptyState {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 4rem 2rem;
+    text-align: center;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+}
+
+.emptyIcon {
+    color: var(--gray-300);
+    margin-bottom: 1rem;
+}
+
+.emptyState h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.emptyState p {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
