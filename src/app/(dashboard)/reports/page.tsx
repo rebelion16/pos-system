@@ -12,7 +12,7 @@ import {
     Cloud,
     CloudOff
 } from 'lucide-react'
-import { localStorageService } from '@/lib/localStorage'
+import { firestoreService } from '@/lib/firebase/firestore'
 import { syncTransactionsToSheets, getWebAppUrl } from '@/lib/googleSheets'
 import { Button } from '@/components/ui'
 import styles from './reports.module.css'
@@ -53,10 +53,6 @@ export default function ReportsPage() {
         setHasWebAppUrl(!!getWebAppUrl())
     }, [period])
 
-    useEffect(() => {
-        fetchReportData()
-    }, [period])
-
     const getDateRange = () => {
         const now = new Date()
         const start = new Date()
@@ -83,9 +79,9 @@ export default function ReportsPage() {
         try {
             const { start, end } = getDateRange()
 
-            // Fetch from localStorage
-            const allTransactions = localStorageService.getTransactions()
-            const allItems = localStorageService.getTransactionItems()
+            // Fetch from Firestore
+            const allTransactions = await firestoreService.getTransactions()
+            const allItems = await firestoreService.getTransactionItems()
 
             // Filter by date and status
             const filteredTx = allTransactions.filter(tx => {

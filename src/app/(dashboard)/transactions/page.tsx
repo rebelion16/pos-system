@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { Search, FileText, Calendar, Download } from 'lucide-react'
-import { localStorageService } from '@/lib/localStorage'
+import { firestoreService } from '@/lib/firebase/firestore'
 import { Transaction } from '@/types/database'
 import styles from './transactions.module.css'
 
@@ -28,8 +28,8 @@ export default function TransactionsPage() {
 
     const fetchTransactions = async () => {
         try {
-            const allTransactions = localStorageService.getTransactions()
-            const allItems = localStorageService.getTransactionItems()
+            const allTransactions = await firestoreService.getTransactions()
+            const allItems = await firestoreService.getTransactionItems()
 
             // Combine transactions with their items
             let txWithItems: TransactionWithItems[] = allTransactions.map(tx => ({

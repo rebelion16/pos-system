@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { Warehouse, AlertTriangle, TrendingUp, TrendingDown, Plus, Search } from 'lucide-react'
-import { localStorageService } from '@/lib/localStorage'
+import { firestoreService } from '@/lib/firebase/firestore'
 import { ProductWithRelations } from '@/types/database'
 import styles from './stock.module.css'
 
@@ -18,10 +18,11 @@ export default function StockPage() {
 
     const fetchProducts = async () => {
         try {
-            const data = localStorageService.getProductsWithRelations()
+            const data = await firestoreService.getProductsWithRelations()
+            const activeProducts = data
                 .filter(p => p.is_active)
                 .sort((a, b) => a.stock - b.stock)
-            setProducts(data)
+            setProducts(activeProducts)
         } catch (error) {
             console.error('Error fetching products:', error)
         } finally {
