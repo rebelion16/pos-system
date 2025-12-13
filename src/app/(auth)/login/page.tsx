@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Store, Mail, Lock, ArrowRight } from 'lucide-react'
@@ -25,7 +25,14 @@ export default function LoginPage() {
     const [loading, setLoading] = useState(false)
     const [googleLoading, setGoogleLoading] = useState(false)
     const router = useRouter()
-    const { signIn, signInWithGoogle } = useAuth()
+    const { user, loading: authLoading, signIn, signInWithGoogle } = useAuth()
+
+    // Redirect to dashboard if already logged in
+    useEffect(() => {
+        if (!authLoading && user) {
+            router.push('/dashboard')
+        }
+    }, [user, authLoading, router])
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -63,11 +70,25 @@ export default function LoginPage() {
             if (googleError) {
                 setError(googleError.message)
             }
+            // Redirect will happen automatically via useEffect when user state updates
         } catch {
             setError('Gagal login dengan Google')
         } finally {
             setGoogleLoading(false)
         }
+    }
+
+    // Show loading while checking auth state
+    if (authLoading) {
+        return (
+            <div className={styles.container}>
+                <div className={styles.loginBox}>
+                    <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}>
+                        <div className="spinner spinner-lg"></div>
+                    </div>
+                </div>
+            </div>
+        )
     }
 
     return (
