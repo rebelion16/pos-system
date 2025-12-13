@@ -69,6 +69,7 @@ const initializeDemoData = () => {
         store_address: 'Jl. Contoh No. 123',
         store_phone: '08123456789',
         store_logo: null,
+        store_code: null,
         tax_rate: 0,
         currency: 'IDR',
         theme: 'light-blue',
