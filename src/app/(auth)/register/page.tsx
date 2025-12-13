@@ -71,7 +71,9 @@ export default function RegisterPage() {
                         <div className={styles.successIcon}>✓</div>
                         <h2>Pendaftaran Berhasil!</h2>
                         <p>Silakan cek email Anda untuk verifikasi akun.</p>
-                        <p className={styles.redirectText}>Mengalihkan ke halaman login...</p>
+                        <Link href="/login" className={styles.loginLink}>
+                            Klik di sini untuk ke halaman Login
+                        </Link>
                     </div>
                 </div>
                 <div className={styles.bgDecoration}>

@@ -152,6 +152,22 @@
     color: var(--text-muted) !important;
 }
 
+.loginLink {
+    display: inline-block;
+    margin-top: 1.5rem;
+    padding: 0.75rem 1.5rem;
+    background: var(--primary-600);
+    color: white;
+    border-radius: var(--radius);
+    font-weight: 500;
+    text-decoration: none;
+    transition: background var(--transition-fast);
+}
+
+.loginLink:hover {
+    background: var(--primary-700);
+}
+
 /* Background Decorations */
 .bgDecoration {
     position: absolute;
