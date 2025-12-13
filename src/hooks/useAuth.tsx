@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, ReactNode, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { User as SupabaseUser, AuthChangeEvent, Session } from '@supabase/supabase-js'
 import { User } from '@/types/database'
@@ -21,53 +21,89 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null)
     const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null)
     const [loading, setLoading] = useState(true)
-    const supabase = createClient()
+    const [mounted, setMounted] = useState(false)
 
-    const fetchUserProfile = async (userId: string) => {
-        const { data, error } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', userId)
-            .single()
+    // Memoize supabase client to prevent recreation on every render
+    const supabase = useMemo(() => createClient(), [])
 
-        if (error) {
-            console.error('Error fetching user profile:', error)
+    const fetchUserProfile = async (userId: string): Promise<User | null> => {
+        try {
+            const { data, error } = await supabase
+                .from('users')
+                .select('*')
+                .eq('id', userId)
+                .single()
+
+            if (error) {
+                // Silently handle if table doesn't exist or no data
+                if (error.code !== 'PGRST116') {
+                    console.warn('Error fetching user profile:', error.message)
+                }
+                return null
+            }
+
+            return data
+        } catch (err) {
+            console.warn('Error fetching user profile:', err)
             return null
         }
-
-        return data
     }
 
     const refreshUser = async () => {
-        const { data: { user: authUser } } = await supabase.auth.getUser()
-        if (authUser) {
-            const profile = await fetchUserProfile(authUser.id)
-            setUser(profile)
-            setSupabaseUser(authUser)
+        try {
+            const { data: { user: authUser } } = await supabase.auth.getUser()
+            if (authUser) {
+                const profile = await fetchUserProfile(authUser.id)
+                setUser(profile)
+                setSupabaseUser(authUser)
+            }
+        } catch (err) {
+            console.warn('Error refreshing user:', err)
         }
     }
 
+    // Set mounted flag to prevent hydration mismatch
     useEffect(() => {
+        setMounted(true)
+    }, [])
+
+    useEffect(() => {
+        if (!mounted) return
+
+        let isCancelled = false
+
         const initAuth = async () => {
-            const { data: { session } } = await supabase.auth.getSession()
+            try {
+                const { data: { session } } = await supabase.auth.getSession()
 
-            if (session?.user) {
-                setSupabaseUser(session.user)
-                const profile = await fetchUserProfile(session.user.id)
-                setUser(profile)
+                if (!isCancelled && session?.user) {
+                    setSupabaseUser(session.user)
+                    const profile = await fetchUserProfile(session.user.id)
+                    if (!isCancelled) {
+                        setUser(profile)
+                    }
+                }
+            } catch (err) {
+                console.warn('Error initializing auth:', err)
+            } finally {
+                if (!isCancelled) {
+                    setLoading(false)
+                }
             }
-
-            setLoading(false)
         }
 
         initAuth()
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
             async (event: AuthChangeEvent, session: Session | null) => {
+                if (isCancelled) return
+
                 if (event === 'SIGNED_IN' && session?.user) {
                     setSupabaseUser(session.user)
                     const profile = await fetchUserProfile(session.user.id)
-                    setUser(profile)
+                    if (!isCancelled) {
+                        setUser(profile)
+                    }
                 } else if (event === 'SIGNED_OUT') {
                     setSupabaseUser(null)
                     setUser(null)
@@ -75,37 +111,67 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
         )
 
-        return () => subscription.unsubscribe()
-    }, [])
+        return () => {
+            isCancelled = true
+            subscription.unsubscribe()
+        }
+    }, [mounted, supabase])
 
     const signIn = async (email: string, password: string) => {
-        const { error } = await supabase.auth.signInWithPassword({
-            email,
-            password,
-        })
-
-        return { error: error as Error | null }
+        try {
+            const { error } = await supabase.auth.signInWithPassword({
+                email,
+                password,
+            })
+            return { error: error as Error | null }
+        } catch (err) {
+            return { error: err as Error }
+        }
     }
 
     const signUp = async (email: string, password: string, name: string, role: string = 'cashier') => {
-        const { error } = await supabase.auth.signUp({
-            email,
-            password,
-            options: {
-                data: {
-                    name,
-                    role,
+        try {
+            const { error } = await supabase.auth.signUp({
+                email,
+                password,
+                options: {
+                    data: {
+                        name,
+                        role,
+                    },
                 },
-            },
-        })
-
-        return { error: error as Error | null }
+            })
+            return { error: error as Error | null }
+        } catch (err) {
+            return { error: err as Error }
+        }
     }
 
     const signOut = async () => {
-        await supabase.auth.signOut()
+        try {
+            await supabase.auth.signOut()
+        } catch (err) {
+            console.warn('Error signing out:', err)
+        }
         setUser(null)
         setSupabaseUser(null)
+    }
+
+    // Prevent hydration mismatch by showing loading state until mounted
+    if (!mounted) {
+        return (
+            <AuthContext.Provider value={{
+                user: null,
+                supabaseUser: null,
+                loading: true,
+                signIn,
+                signUp,
+                signOut,
+                refreshUser,
+            }}>
+                {children}
+            </AuthContext.Provider>
+        )
     }
 
     return (
@@ -130,3 +196,4 @@ export function useAuth() {
     }
     return context
 }
+

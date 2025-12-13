@@ -188,7 +188,8 @@
     padding: 0.875rem 1rem;
     background: var(--surface);
     border-bottom: 1px solid var(--border);
-    z-index: 20;
+    z-index: 45;
+    min-height: 60px;
 }
 
 .menuButton {
@@ -240,6 +241,10 @@
     color: var(--text-primary);
 }
 
+.userMenuButton svg {
+    color: var(--text-secondary);
+}
+
 .userMenuDropdown {
     position: absolute;
     top: 100%;
@@ -252,6 +257,7 @@
     box-shadow: var(--shadow-lg);
     overflow: hidden;
     animation: slideUp 0.15s ease-out;
+    z-index: 50;
 }
 
 .userMenuHeader {

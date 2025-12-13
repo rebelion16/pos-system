@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import {
     Plus,
     Search,
@@ -37,7 +37,9 @@ export default function ProductsPage() {
     })
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState('')
-    const supabase = createClient()
+
+    // Memoize supabase client
+    const supabase = useMemo(() => createClient(), [])
 
     useEffect(() => {
         fetchProducts()
@@ -54,10 +56,16 @@ export default function ProductsPage() {
         `)
                 .order('created_at', { ascending: false })
 
-            if (error) throw error
-            setProducts(data || [])
-        } catch (error) {
-            console.error('Error fetching products:', error)
+            if (error) {
+                // Silently handle if table doesn't exist
+                console.warn('Products table may not exist yet:', error.message)
+                setProducts([])
+            } else {
+                setProducts(data || [])
+            }
+        } catch (err) {
+            console.warn('Error fetching products:', err)
+            setProducts([])
         } finally {
             setLoading(false)
         }

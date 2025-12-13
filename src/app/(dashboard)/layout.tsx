@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
@@ -42,6 +42,24 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     const pathname = usePathname()
     const router = useRouter()
     const { user, signOut, loading } = useAuth()
+    const userMenuRef = useRef<HTMLDivElement>(null)
+
+    // Close user menu when clicking outside
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+                setUserMenuOpen(false)
+            }
+        }
+
+        if (userMenuOpen) {
+            document.addEventListener('mousedown', handleClickOutside)
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside)
+        }
+    }, [userMenuOpen])
 
     const handleSignOut = async () => {
         await signOut()
@@ -153,7 +171,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
                     </button>
 
                     <div className={styles.headerRight}>
-                        <div className={styles.userMenu}>
+                        <div className={styles.userMenu} ref={userMenuRef}>
                             <button
                                 className={styles.userMenuButton}
                                 onClick={() => setUserMenuOpen(!userMenuOpen)}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import {
     Store,
     Palette,
@@ -47,7 +47,8 @@ export default function SettingsPage() {
     const [printerEnabled, setPrinterEnabled] = useState(false)
     const [printerName, setPrinterName] = useState('')
 
-    const supabase = createClient()
+    // Memoize supabase client
+    const supabase = useMemo(() => createClient(), [])
 
     useEffect(() => {
         fetchSettings()
@@ -67,8 +68,12 @@ export default function SettingsPage() {
                 .limit(1)
                 .single()
 
-            if (error && error.code !== 'PGRST116') {
-                console.error('Error fetching settings:', error)
+            // Silently handle if table doesn't exist (PGRST116) or no data
+            if (error) {
+                if (error.code !== 'PGRST116') {
+                    console.warn('Settings table may not exist yet:', error.message)
+                }
+                setLoading(false)
                 return
             }
 

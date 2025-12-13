@@ -185,7 +185,7 @@ export default function DashboardPage() {
             <div className={styles.statsGrid}>
                 <div className={styles.statCard}>
                     <div className={styles.statIcon} style={{ background: 'var(--success-100)', color: 'var(--success-600)' }}>
-                        <DollarSign size={24} />
+                        <span style={{ fontWeight: 700, fontSize: '1rem' }}>Rp</span>
                     </div>
                     <div className={styles.statContent}>
                         <p className={styles.statLabel}>Penjualan Hari Ini</p>

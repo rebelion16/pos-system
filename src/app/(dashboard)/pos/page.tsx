@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useMemo } from 'react'
 import {
     Search,
     ShoppingCart,
@@ -40,7 +40,9 @@ export default function POSPage() {
     const [showSuccess, setShowSuccess] = useState(false)
     const [lastInvoice, setLastInvoice] = useState('')
     const searchRef = useRef<HTMLInputElement>(null)
-    const supabase = createClient()
+
+    // Memoize supabase client
+    const supabase = useMemo(() => createClient(), [])
 
     useEffect(() => {
         fetchProducts()
@@ -54,16 +56,22 @@ export default function POSPage() {
 
     const fetchProducts = async () => {
         try {
-            const { data } = await supabase
+            const { data, error } = await supabase
                 .from('products')
                 .select(`*, category:categories(*)`)
                 .eq('is_active', true)
                 .gt('stock', 0)
                 .order('name')
 
-            setProducts(data || [])
-        } catch (error) {
-            console.error('Error fetching products:', error)
+            if (error) {
+                console.warn('Products table may not exist yet:', error.message)
+                setProducts([])
+            } else {
+                setProducts(data || [])
+            }
+        } catch (err) {
+            console.warn('Error fetching products:', err)
+            setProducts([])
         } finally {
             setLoading(false)
         }
