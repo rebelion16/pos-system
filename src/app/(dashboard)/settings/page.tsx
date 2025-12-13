@@ -25,6 +25,7 @@ interface SettingsData {
     store_address: string | null
     store_phone: string | null
     store_logo: string | null
+    store_code: string | null
     tax_rate: number
     currency: string
     theme: string
@@ -45,6 +46,7 @@ export default function SettingsPage() {
     const [storeName, setStoreName] = useState('')
     const [storeAddress, setStoreAddress] = useState('')
     const [storePhone, setStorePhone] = useState('')
+    const [storeCode, setStoreCode] = useState('')
     const [taxRate, setTaxRate] = useState(0)
     const [themeMode, setThemeMode] = useState<ThemeMode>('light')
     const [themeColor, setThemeColor] = useState<ThemeColor>('blue')
@@ -77,6 +79,7 @@ export default function SettingsPage() {
             setStoreName(data.store_name)
             setStoreAddress(data.store_address || '')
             setStorePhone(data.store_phone || '')
+            setStoreCode(data.store_code || '')
             setTaxRate(data.tax_rate)
             setPrinterEnabled(data.printer_enabled)
             setPrinterName(data.printer_name || '')
@@ -100,6 +103,7 @@ export default function SettingsPage() {
                 store_name: storeName,
                 store_address: storeAddress || null,
                 store_phone: storePhone || null,
+                store_code: storeCode || null,
                 tax_rate: taxRate,
                 theme: themeValue,
                 printer_enabled: printerEnabled,
@@ -170,6 +174,23 @@ export default function SettingsPage() {
                                 onChange={(e) => setStorePhone(e.target.value)}
                                 placeholder="08xx-xxxx-xxxx"
                             />
+                        </div>
+                        <div className={styles.formGroup}>
+                            <label className={styles.label}>
+                                Kode Toko
+                                <span className={styles.labelHint}> (untuk login kasir)</span>
+                            </label>
+                            <input
+                                type="text"
+                                className={styles.input}
+                                value={storeCode}
+                                onChange={(e) => setStoreCode(e.target.value.toUpperCase())}
+                                placeholder="Contoh: TOKO123"
+                                style={{ textTransform: 'uppercase' }}
+                            />
+                            <p style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: '0.25rem' }}>
+                                Kasir menggunakan kode ini saat login. Bisa berupa nama toko atau kode unik.
+                            </p>
                         </div>
                         <div className={styles.formGroup} style={{ gridColumn: '1 / -1' }}>
                             <label className={styles.label}>Alamat</label>

@@ -26,7 +26,8 @@ import {
     TransactionItem,
     Settings,
     ProductWithRelations,
-    StockHistory
+    StockHistory,
+    Cashier
 } from '@/types/database'
 
 // Collection names
@@ -39,6 +40,7 @@ const COLLECTIONS = {
     transactionItems: 'transaction_items',
     stockHistory: 'stock_history',
     settings: 'settings',
+    cashiers: 'cashiers',
 }
 
 // Helper to generate UUID
@@ -374,6 +376,7 @@ export const firestoreService = {
                 store_address: '',
                 store_phone: '',
                 store_logo: null,
+                store_code: null,
                 tax_rate: 0,
                 currency: 'IDR',
                 theme: 'light-blue',
@@ -390,6 +393,113 @@ export const firestoreService = {
                 updated_at: Timestamp.now(),
             })
         }
+    },
+
+    // ==================== CASHIERS ====================
+    // Simple hash function for password (for demo purposes)
+    hashPassword: (password: string): string => {
+        let hash = 0
+        for (let i = 0; i < password.length; i++) {
+            const char = password.charCodeAt(i)
+            hash = ((hash << 5) - hash) + char
+            hash = hash & hash
+        }
+        return 'HASH_' + Math.abs(hash).toString(16).padStart(8, '0')
+    },
+
+    getCashiers: async (storeCode?: string): Promise<Cashier[]> => {
+        if (!db) return []
+        let q
+        if (storeCode) {
+            q = query(collection(db, COLLECTIONS.cashiers), where('store_code', '==', storeCode))
+        } else {
+            q = collection(db, COLLECTIONS.cashiers)
+        }
+        const snapshot = await getDocs(q)
+        return snapshot.docs.map(doc => convertDoc<Cashier>(doc))
+    },
+
+    getCashierById: async (id: string): Promise<Cashier | null> => {
+        if (!db) return null
+        const docRef = doc(db, COLLECTIONS.cashiers, id)
+        const docSnap = await getDoc(docRef)
+        if (!docSnap.exists()) return null
+        return convertDoc<Cashier>(docSnap)
+    },
+
+    getCashierByUsername: async (username: string, storeCode: string): Promise<Cashier | null> => {
+        if (!db) return null
+        const q = query(
+            collection(db, COLLECTIONS.cashiers),
+            where('username', '==', username),
+            where('store_code', '==', storeCode)
+        )
+        const snapshot = await getDocs(q)
+        if (snapshot.empty) return null
+        return convertDoc<Cashier>(snapshot.docs[0])
+    },
+
+    verifyCashierLogin: async (username: string, password: string, storeCode: string): Promise<Cashier | null> => {
+        if (!db) return null
+        const cashier = await firestoreService.getCashierByUsername(username, storeCode)
+        if (!cashier) return null
+        if (!cashier.is_active) return null
+        const passwordHash = firestoreService.hashPassword(password)
+        if (cashier.password_hash !== passwordHash) return null
+        return cashier
+    },
+
+    createCashier: async (data: { username: string; password: string; name: string; store_code: string }): Promise<Cashier> => {
+        if (!db) throw new Error('Firestore not configured')
+
+        // Check if username already exists for this store
+        const existing = await firestoreService.getCashierByUsername(data.username, data.store_code)
+        if (existing) {
+            throw new Error('Username sudah digunakan')
+        }
+
+        const now = Timestamp.now()
+        const passwordHash = firestoreService.hashPassword(data.password)
+
+        const docRef = await addDoc(collection(db, COLLECTIONS.cashiers), {
+            username: data.username,
+            password_hash: passwordHash,
+            name: data.name,
+            store_code: data.store_code,
+            is_active: true,
+            created_at: now,
+            updated_at: now,
+        })
+
+        return {
+            id: docRef.id,
+            username: data.username,
+            password_hash: passwordHash,
+            name: data.name,
+            store_code: data.store_code,
+            is_active: true,
+            created_at: now.toDate().toISOString(),
+            updated_at: now.toDate().toISOString(),
+        }
+    },
+
+    updateCashier: async (id: string, data: { name?: string; username?: string; password?: string; is_active?: boolean }): Promise<void> => {
+        if (!db) throw new Error('Firestore not configured')
+        const updateData: Record<string, unknown> = {
+            updated_at: Timestamp.now(),
+        }
+        if (data.name !== undefined) updateData.name = data.name
+        if (data.username !== undefined) updateData.username = data.username
+        if (data.password !== undefined) updateData.password_hash = firestoreService.hashPassword(data.password)
+        if (data.is_active !== undefined) updateData.is_active = data.is_active
+
+        const docRef = doc(db, COLLECTIONS.cashiers, id)
+        await updateDoc(docRef, updateData)
+    },
+
+    deleteCashier: async (id: string): Promise<void> => {
+        if (!db) throw new Error('Firestore not configured')
+        await deleteDoc(doc(db, COLLECTIONS.cashiers, id))
     },
 
     // ==================== UTILITIES ====================

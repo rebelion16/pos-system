@@ -3,9 +3,10 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Store, Mail, Lock, ArrowRight } from 'lucide-react'
+import { Store, Mail, Lock, ArrowRight, User, Building2 } from 'lucide-react'
 import { Button, Input } from '@/components/ui'
 import { useAuth } from '@/hooks/useAuth'
+import { firestoreService } from '@/lib/firebase/firestore'
 import styles from './login.module.css'
 
 // Google Icon SVG
@@ -18,23 +19,38 @@ const GoogleIcon = () => (
     </svg>
 )
 
+type LoginMode = 'owner' | 'cashier'
+
 export default function LoginPage() {
+    const [loginMode, setLoginMode] = useState<LoginMode>('owner')
+
+    // Owner login states
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
+
+    // Cashier login states
+    const [username, setUsername] = useState('')
+    const [cashierPassword, setCashierPassword] = useState('')
+    const [storeCode, setStoreCode] = useState('')
+
     const [error, setError] = useState('')
     const [loading, setLoading] = useState(false)
     const [googleLoading, setGoogleLoading] = useState(false)
     const router = useRouter()
-    const { user, loading: authLoading, signIn, signInWithGoogle } = useAuth()
+    const { user, loading: authLoading, signIn, signInWithGoogle, signInAsCashier } = useAuth()
 
     // Redirect to dashboard if already logged in
     useEffect(() => {
         if (!authLoading && user) {
-            router.push('/dashboard')
+            if (user.role === 'cashier') {
+                router.push('/pos')
+            } else {
+                router.push('/dashboard')
+            }
         }
     }, [user, authLoading, router])
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleOwnerSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setError('')
         setLoading(true)
@@ -54,6 +70,36 @@ export default function LoginPage() {
             }
 
             router.push('/dashboard')
+        } catch {
+            setError('Terjadi kesalahan. Silakan coba lagi.')
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const handleCashierSubmit = async (e: React.FormEvent) => {
+        e.preventDefault()
+        setError('')
+        setLoading(true)
+
+        try {
+            if (!username.trim() || !cashierPassword || !storeCode.trim()) {
+                setError('Semua field harus diisi')
+                return
+            }
+
+            const { error: loginError } = await signInAsCashier(
+                username.trim(),
+                cashierPassword,
+                storeCode.trim().toUpperCase()
+            )
+
+            if (loginError) {
+                setError(loginError.message)
+                return
+            }
+
+            router.push('/pos')
         } catch {
             setError('Terjadi kesalahan. Silakan coba lagi.')
         } finally {
@@ -103,72 +149,156 @@ export default function LoginPage() {
                     <p className={styles.subtitle}>Masuk ke sistem POS Anda</p>
                 </div>
 
-                {/* Google Sign In */}
-                <button
-                    type="button"
-                    onClick={handleGoogleSignIn}
-                    disabled={googleLoading}
-                    className={styles.googleButton}
-                >
-                    {googleLoading ? (
-                        <div className="spinner" style={{ width: '18px', height: '18px' }} />
-                    ) : (
-                        <GoogleIcon />
-                    )}
-                    Masuk dengan Google
-                </button>
-
-                <div className={styles.divider}>
-                    <span>atau</span>
+                {/* Login Mode Tabs */}
+                <div className={styles.tabs}>
+                    <button
+                        type="button"
+                        className={`${styles.tab} ${loginMode === 'owner' ? styles.tabActive : ''}`}
+                        onClick={() => { setLoginMode('owner'); setError(''); }}
+                    >
+                        <Mail size={16} />
+                        Pemilik / Admin
+                    </button>
+                    <button
+                        type="button"
+                        className={`${styles.tab} ${loginMode === 'cashier' ? styles.tabActive : ''}`}
+                        onClick={() => { setLoginMode('cashier'); setError(''); }}
+                    >
+                        <User size={16} />
+                        Kasir
+                    </button>
                 </div>
 
-                {/* Form */}
-                <form onSubmit={handleSubmit} className={styles.form}>
-                    {error && (
-                        <div className={styles.error}>
-                            {error}
+                {loginMode === 'owner' ? (
+                    <>
+                        {/* Google Sign In */}
+                        <button
+                            type="button"
+                            onClick={handleGoogleSignIn}
+                            disabled={googleLoading}
+                            className={styles.googleButton}
+                        >
+                            {googleLoading ? (
+                                <div className="spinner" style={{ width: '18px', height: '18px' }} />
+                            ) : (
+                                <GoogleIcon />
+                            )}
+                            Masuk dengan Google
+                        </button>
+
+                        <div className={styles.divider}>
+                            <span>atau</span>
                         </div>
-                    )}
 
-                    <div className={styles.inputWrapper}>
-                        <Mail className={styles.inputIcon} size={18} />
-                        <Input
-                            type="email"
-                            placeholder="Email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            required
-                            className={styles.inputWithIcon}
-                        />
-                    </div>
+                        {/* Owner Form */}
+                        <form onSubmit={handleOwnerSubmit} className={styles.form}>
+                            {error && (
+                                <div className={styles.error}>
+                                    {error}
+                                </div>
+                            )}
 
-                    <div className={styles.inputWrapper}>
-                        <Lock className={styles.inputIcon} size={18} />
-                        <Input
-                            type="password"
-                            placeholder="Password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            required
-                            className={styles.inputWithIcon}
-                        />
-                    </div>
+                            <div className={styles.inputWrapper}>
+                                <Mail className={styles.inputIcon} size={18} />
+                                <Input
+                                    type="email"
+                                    placeholder="Email"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    required
+                                    className={styles.inputWithIcon}
+                                />
+                            </div>
 
-                    <Button type="submit" loading={loading} className={styles.submitButton}>
-                        Masuk
-                        <ArrowRight size={16} />
-                    </Button>
-                </form>
+                            <div className={styles.inputWrapper}>
+                                <Lock className={styles.inputIcon} size={18} />
+                                <Input
+                                    type="password"
+                                    placeholder="Password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    required
+                                    className={styles.inputWithIcon}
+                                />
+                            </div>
 
-                {/* Footer */}
-                <div className={styles.footer}>
-                    <p>
-                        Belum punya akun?{' '}
-                        <Link href="/register" className={styles.link}>
-                            Daftar sekarang
-                        </Link>
-                    </p>
-                </div>
+                            <Button type="submit" loading={loading} className={styles.submitButton}>
+                                Masuk
+                                <ArrowRight size={16} />
+                            </Button>
+                        </form>
+
+                        {/* Footer */}
+                        <div className={styles.footer}>
+                            <p>
+                                Belum punya akun?{' '}
+                                <Link href="/register" className={styles.link}>
+                                    Daftar sekarang
+                                </Link>
+                            </p>
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        {/* Cashier Form */}
+                        <form onSubmit={handleCashierSubmit} className={styles.form}>
+                            {error && (
+                                <div className={styles.error}>
+                                    {error}
+                                </div>
+                            )}
+
+                            <div className={styles.inputWrapper}>
+                                <Building2 className={styles.inputIcon} size={18} />
+                                <Input
+                                    type="text"
+                                    placeholder="Kode Toko"
+                                    value={storeCode}
+                                    onChange={(e) => setStoreCode(e.target.value.toUpperCase())}
+                                    required
+                                    className={styles.inputWithIcon}
+                                    style={{ textTransform: 'uppercase' }}
+                                />
+                            </div>
+
+                            <div className={styles.inputWrapper}>
+                                <User className={styles.inputIcon} size={18} />
+                                <Input
+                                    type="text"
+                                    placeholder="Username"
+                                    value={username}
+                                    onChange={(e) => setUsername(e.target.value)}
+                                    required
+                                    className={styles.inputWithIcon}
+                                />
+                            </div>
+
+                            <div className={styles.inputWrapper}>
+                                <Lock className={styles.inputIcon} size={18} />
+                                <Input
+                                    type="password"
+                                    placeholder="Password"
+                                    value={cashierPassword}
+                                    onChange={(e) => setCashierPassword(e.target.value)}
+                                    required
+                                    className={styles.inputWithIcon}
+                                />
+                            </div>
+
+                            <Button type="submit" loading={loading} className={styles.submitButton}>
+                                Masuk sebagai Kasir
+                                <ArrowRight size={16} />
+                            </Button>
+                        </form>
+
+                        {/* Cashier Footer */}
+                        <div className={styles.footer}>
+                            <p className={styles.footerHint}>
+                                Minta kode toko dan kredensial login dari pemilik toko Anda.
+                            </p>
+                        </div>
+                    </>
+                )}
             </div>
         </div>
     )

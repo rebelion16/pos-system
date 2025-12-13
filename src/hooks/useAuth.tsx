@@ -13,6 +13,7 @@ import {
     updateProfile,
     sendEmailVerification
 } from 'firebase/auth'
+import { firestoreService } from '@/lib/firebase/firestore'
 
 interface User {
     id: string
@@ -21,6 +22,8 @@ interface User {
     role: 'owner' | 'admin' | 'cashier'
     avatar_url: string | null
     email_verified: boolean
+    loginType: 'firebase' | 'cashier'
+    cashierId?: string
 }
 
 interface AuthContextType {
@@ -31,6 +34,7 @@ interface AuthContextType {
     signIn: (email: string, password: string) => Promise<{ error: Error | null }>
     signUp: (email: string, password: string, name: string) => Promise<{ error: Error | null; needsVerification?: boolean }>
     signInWithGoogle: () => Promise<{ error: Error | null }>
+    signInAsCashier: (username: string, password: string, storeCode: string) => Promise<{ error: Error | null }>
     signOut: () => Promise<void>
     refreshUser: () => Promise<void>
 }
@@ -38,6 +42,9 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 const googleProvider = new GoogleAuthProvider()
+
+// Session storage key for cashier login
+const CASHIER_SESSION_KEY = 'pos_cashier_session'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null)
@@ -49,8 +56,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setMounted(true)
     }, [])
 
+    // Check for cashier session on mount
     useEffect(() => {
         if (!mounted) return
+
+        // Check if there's a cashier session
+        const cashierSession = sessionStorage.getItem(CASHIER_SESSION_KEY)
+        if (cashierSession) {
+            try {
+                const cashierData = JSON.parse(cashierSession)
+                setUser({
+                    id: cashierData.id,
+                    email: '',
+                    name: cashierData.name,
+                    role: 'cashier',
+                    avatar_url: null,
+                    email_verified: true,
+                    loginType: 'cashier',
+                    cashierId: cashierData.id
+                })
+                setLoading(false)
+                return
+            } catch {
+                sessionStorage.removeItem(CASHIER_SESSION_KEY)
+            }
+        }
 
         // If Firebase is not configured, stop loading
         if (!isFirebaseConfigured || !auth) {
@@ -64,7 +94,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 setUser(createUserFromAuth(authUser))
             } else {
                 setFirebaseUser(null)
-                setUser(null)
+                // Don't set user to null if there's a cashier session
+                const cashierSession = sessionStorage.getItem(CASHIER_SESSION_KEY)
+                if (!cashierSession) {
+                    setUser(null)
+                }
             }
             setLoading(false)
         })
@@ -80,7 +114,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             name: authUser.displayName || authUser.email?.split('@')[0] || 'User',
             role: 'owner', // Default role for new users
             avatar_url: authUser.photoURL || null,
-            email_verified: authUser.emailVerified
+            email_verified: authUser.emailVerified,
+            loginType: 'firebase'
         }
     }
 
@@ -166,7 +201,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     }
 
+    const signInAsCashier = async (username: string, password: string, storeCode: string) => {
+        try {
+            const cashier = await firestoreService.verifyCashierLogin(username, password, storeCode)
+
+            if (!cashier) {
+                return { error: new Error('Username, password, atau kode toko salah') }
+            }
+
+            // Store cashier session
+            sessionStorage.setItem(CASHIER_SESSION_KEY, JSON.stringify({
+                id: cashier.id,
+                name: cashier.name,
+                username: cashier.username,
+                storeCode: cashier.store_code
+            }))
+
+            // Set user state
+            setUser({
+                id: cashier.id,
+                email: '',
+                name: cashier.name,
+                role: 'cashier',
+                avatar_url: null,
+                email_verified: true,
+                loginType: 'cashier',
+                cashierId: cashier.id
+            })
+
+            return { error: null }
+        } catch (err) {
+            const error = err as Error
+            return { error: new Error(error.message || 'Gagal login. Silakan coba lagi.') }
+        }
+    }
+
     const signOut = async () => {
+        // Clear cashier session
+        sessionStorage.removeItem(CASHIER_SESSION_KEY)
+
         if (auth) {
             await firebaseSignOut(auth)
         }
@@ -184,6 +257,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 signIn,
                 signUp,
                 signInWithGoogle,
+                signInAsCashier,
                 signOut,
                 refreshUser,
             }}>
@@ -201,6 +275,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             signIn,
             signUp,
             signInWithGoogle,
+            signInAsCashier,
             signOut,
             refreshUser,
         }}>

@@ -373,4 +373,103 @@
         align-items: center;
         justify-content: space-between;
     }
+
+    .stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* Warning Message */
+.warning {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 1rem;
+    background: var(--warning-50);
+    border: 1px solid var(--warning-200);
+    border-radius: var(--radius-lg);
+    color: var(--warning-700);
+}
+
+.warning strong {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.warning p {
+    font-size: 0.875rem;
+    margin: 0;
+}
+
+.warning a {
+    color: var(--warning-800);
+    font-weight: 600;
+    text-decoration: underline;
+}
+
+/* Active/Inactive States */
+.userCardInactive {
+    opacity: 0.6;
+}
+
+.roleActive {
+    background: var(--success-100);
+    color: var(--success-700);
+}
+
+.roleInactive {
+    background: var(--gray-100);
+    color: var(--gray-600);
+}
+
+/* Password Input */
+.passwordInput {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.passwordInput .input {
+    padding-right: 2.5rem;
+}
+
+.passwordToggle {
+    position: absolute;
+    right: 0.5rem;
+    padding: 0.25rem;
+    border: none;
+    background: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.passwordToggle:hover {
+    color: var(--text-primary);
+}
+
+/* Error Alert */
+.errorAlert {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    background: var(--danger-50);
+    border: 1px solid var(--danger-200);
+    border-radius: var(--radius);
+    color: var(--danger-700);
+    font-size: 0.875rem;
+    margin-bottom: 1rem;
+}
+
+/* Input Hint */
+.inputHint {
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+    margin-top: 0.25rem;
+}
+
+.labelHint {
+    font-weight: 400;
+    color: var(--text-tertiary);
 }

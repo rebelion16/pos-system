@@ -6,118 +6,169 @@ import {
     Plus,
     Edit2,
     Trash2,
-    Crown,
-    Shield,
     User as UserIcon,
-    X
+    X,
+    Eye,
+    EyeOff,
+    Check,
+    AlertCircle
 } from 'lucide-react'
 import { firestoreService } from '@/lib/firebase/firestore'
 import { Button } from '@/components/ui'
-import { User, UserRole } from '@/types/database'
+import { Cashier } from '@/types/database'
 import styles from './users.module.css'
 
-type FormUser = {
+type FormCashier = {
     id?: string
-    email: string
+    username: string
     name: string
-    role: UserRole
+    password: string
+    confirmPassword: string
 }
 
 export default function UsersPage() {
-    const [users, setUsers] = useState<User[]>([])
+    const [cashiers, setCashiers] = useState<Cashier[]>([])
+    const [storeCode, setStoreCode] = useState<string | null>(null)
     const [loading, setLoading] = useState(true)
     const [showModal, setShowModal] = useState(false)
-    const [editingUser, setEditingUser] = useState<FormUser | null>(null)
+    const [editingCashier, setEditingCashier] = useState<Cashier | null>(null)
     const [saving, setSaving] = useState(false)
+    const [error, setError] = useState('')
 
     // Form states
     const [name, setName] = useState('')
-    const [email, setEmail] = useState('')
-    const [role, setRole] = useState<UserRole>('cashier')
+    const [username, setUsername] = useState('')
+    const [password, setPassword] = useState('')
+    const [confirmPassword, setConfirmPassword] = useState('')
+    const [showPassword, setShowPassword] = useState(false)
 
     useEffect(() => {
-        fetchUsers()
+        fetchData()
     }, [])
 
-    const fetchUsers = async () => {
+    const fetchData = async () => {
         try {
-            const data = await firestoreService.getUsers()
-            setUsers(data)
+            // Get store settings first
+            const settings = await firestoreService.getSettings()
+            if (settings?.store_code) {
+                setStoreCode(settings.store_code)
+                // Get cashiers for this store
+                const data = await firestoreService.getCashiers(settings.store_code)
+                setCashiers(data)
+            } else {
+                setStoreCode(null)
+            }
         } catch (error) {
-            console.error('Error fetching users:', error)
+            console.error('Error fetching data:', error)
         } finally {
             setLoading(false)
         }
     }
 
-    const openModal = (user?: User) => {
-        if (user) {
-            setEditingUser(user)
-            setName(user.name)
-            setEmail(user.email)
-            setRole(user.role)
+    const openModal = (cashier?: Cashier) => {
+        setError('')
+        if (cashier) {
+            setEditingCashier(cashier)
+            setName(cashier.name)
+            setUsername(cashier.username)
+            setPassword('')
+            setConfirmPassword('')
         } else {
-            setEditingUser(null)
+            setEditingCashier(null)
             setName('')
-            setEmail('')
-            setRole('cashier')
+            setUsername('')
+            setPassword('')
+            setConfirmPassword('')
         }
         setShowModal(true)
     }
 
     const closeModal = () => {
         setShowModal(false)
-        setEditingUser(null)
+        setEditingCashier(null)
         setName('')
-        setEmail('')
-        setRole('cashier')
+        setUsername('')
+        setPassword('')
+        setConfirmPassword('')
+        setError('')
     }
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
-        if (!name.trim() || !email.trim()) return
+        if (!name.trim() || !username.trim()) {
+            setError('Nama dan username harus diisi')
+            return
+        }
+
+        if (!editingCashier && !password) {
+            setError('Password harus diisi untuk kasir baru')
+            return
+        }
+
+        if (password && password !== confirmPassword) {
+            setError('Password dan konfirmasi password tidak cocok')
+            return
+        }
+
+        if (password && password.length < 4) {
+            setError('Password minimal 4 karakter')
+            return
+        }
+
+        if (!storeCode) {
+            setError('Kode toko belum diatur. Silakan atur di halaman Pengaturan.')
+            return
+        }
 
         setSaving(true)
+        setError('')
         try {
-            if (editingUser?.id) {
-                await firestoreService.updateUser(editingUser.id, {
+            if (editingCashier?.id) {
+                await firestoreService.updateCashier(editingCashier.id, {
                     name: name.trim(),
-                    role,
+                    username: username.trim(),
+                    ...(password ? { password } : {}),
                 })
             } else {
-                await firestoreService.createUser({
-                    email: email.trim(),
+                await firestoreService.createCashier({
+                    username: username.trim(),
+                    password,
                     name: name.trim(),
-                    role,
-                    avatar_url: null
+                    store_code: storeCode,
                 })
             }
 
-            await fetchUsers()
+            await fetchData()
             closeModal()
         } catch (error) {
-            console.error('Error saving user:', error)
+            const err = error as Error
+            setError(err.message || 'Gagal menyimpan kasir')
         } finally {
             setSaving(false)
         }
     }
 
     const handleDelete = async (id: string) => {
-        if (!confirm('Apakah Anda yakin ingin menghapus pengguna ini?')) return
+        if (!confirm('Apakah Anda yakin ingin menghapus kasir ini?')) return
 
         try {
-            await firestoreService.deleteUser(id)
-            setUsers(users.filter(u => u.id !== id))
+            await firestoreService.deleteCashier(id)
+            setCashiers(cashiers.filter(c => c.id !== id))
         } catch (error) {
-            console.error('Error deleting user:', error)
+            console.error('Error deleting cashier:', error)
         }
     }
 
-    const getRoleLabel = (role: UserRole) => {
-        switch (role) {
-            case 'owner': return 'Owner'
-            case 'admin': return 'Admin'
-            case 'cashier': return 'Kasir'
+    const toggleActive = async (cashier: Cashier) => {
+        try {
+            await firestoreService.updateCashier(cashier.id, {
+                is_active: !cashier.is_active
+            })
+            setCashiers(cashiers.map(c =>
+                c.id === cashier.id ? { ...c, is_active: !c.is_active } : c
+            ))
+        } catch (error) {
+            console.error('Error toggling active status:', error)
         }
     }
 
@@ -125,13 +176,11 @@ export default function UsersPage() {
         return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
     }
 
-    const countByRole = (role: UserRole) => users.filter(u => u.role === role).length
-
     if (loading) {
         return (
             <div className={styles.loading}>
                 <div className="spinner spinner-lg"></div>
-                <p>Memuat data pengguna...</p>
+                <p>Memuat data kasir...</p>
             </div>
         )
     }
@@ -140,79 +189,92 @@ export default function UsersPage() {
         <div className={styles.container}>
             <div className={styles.header}>
                 <div>
-                    <h1 className={styles.title}>Manajemen Pengguna</h1>
-                    <p className={styles.subtitle}>Kelola akses pengguna dan hak akses</p>
+                    <h1 className={styles.title}>Manajemen Kasir</h1>
+                    <p className={styles.subtitle}>Kelola akun kasir untuk toko Anda</p>
                 </div>
-                <Button variant="primary" onClick={() => openModal()}>
+                <Button variant="primary" onClick={() => openModal()} disabled={!storeCode}>
                     <Plus size={18} />
-                    Tambah Pengguna
+                    Tambah Kasir
                 </Button>
             </div>
 
+            {/* Store Code Warning */}
+            {!storeCode && (
+                <div className={styles.warning}>
+                    <AlertCircle size={20} />
+                    <div>
+                        <strong>Kode Toko Belum Diatur</strong>
+                        <p>Silakan atur kode toko di halaman <a href="/settings">Pengaturan</a> terlebih dahulu sebelum menambahkan kasir.</p>
+                    </div>
+                </div>
+            )}
+
             {/* Stats */}
             <div className={styles.stats}>
-                <div className={styles.statCard}>
-                    <div className={styles.statIcon} style={{ background: 'var(--warning-100)', color: 'var(--warning-600)' }}>
-                        <Crown size={20} />
-                    </div>
-                    <div className={styles.statInfo}>
-                        <div className={styles.statValue}>{countByRole('owner')}</div>
-                        <div className={styles.statLabel}>Owner</div>
-                    </div>
-                </div>
-                <div className={styles.statCard}>
-                    <div className={styles.statIcon} style={{ background: 'var(--primary-100)', color: 'var(--primary-600)' }}>
-                        <Shield size={20} />
-                    </div>
-                    <div className={styles.statInfo}>
-                        <div className={styles.statValue}>{countByRole('admin')}</div>
-                        <div className={styles.statLabel}>Admin</div>
-                    </div>
-                </div>
                 <div className={styles.statCard}>
                     <div className={styles.statIcon} style={{ background: 'var(--success-100)', color: 'var(--success-600)' }}>
                         <UserIcon size={20} />
                     </div>
                     <div className={styles.statInfo}>
-                        <div className={styles.statValue}>{countByRole('cashier')}</div>
-                        <div className={styles.statLabel}>Kasir</div>
+                        <div className={styles.statValue}>{cashiers.length}</div>
+                        <div className={styles.statLabel}>Total Kasir</div>
+                    </div>
+                </div>
+                <div className={styles.statCard}>
+                    <div className={styles.statIcon} style={{ background: 'var(--primary-100)', color: 'var(--primary-600)' }}>
+                        <Check size={20} />
+                    </div>
+                    <div className={styles.statInfo}>
+                        <div className={styles.statValue}>{cashiers.filter(c => c.is_active).length}</div>
+                        <div className={styles.statLabel}>Kasir Aktif</div>
                     </div>
                 </div>
             </div>
 
-            {/* User List */}
-            {users.length === 0 ? (
+            {/* Cashier List */}
+            {cashiers.length === 0 ? (
                 <div className={styles.emptyState}>
                     <Users size={64} className={styles.emptyIcon} />
-                    <h3>Belum Ada Pengguna</h3>
-                    <p>Tambahkan pengguna pertama untuk mulai mengelola akses</p>
+                    <h3>Belum Ada Kasir</h3>
+                    <p>
+                        {storeCode
+                            ? 'Tambahkan kasir pertama untuk mulai menggunakan POS'
+                            : 'Atur kode toko terlebih dahulu di halaman Pengaturan'}
+                    </p>
                 </div>
             ) : (
                 <div className={styles.userList}>
-                    {users.map((user) => (
-                        <div key={user.id} className={styles.userCard}>
-                            <div className={`${styles.avatar} ${styles[`avatar${user.role.charAt(0).toUpperCase() + user.role.slice(1)}`]}`}>
-                                {getInitials(user.name)}
+                    {cashiers.map((cashier) => (
+                        <div key={cashier.id} className={`${styles.userCard} ${!cashier.is_active ? styles.userCardInactive : ''}`}>
+                            <div className={`${styles.avatar} ${styles.avatarCashier}`}>
+                                {getInitials(cashier.name)}
                             </div>
                             <div className={styles.userInfo}>
-                                <div className={styles.userName}>{user.name}</div>
-                                <div className={styles.userEmail}>{user.email}</div>
+                                <div className={styles.userName}>{cashier.name}</div>
+                                <div className={styles.userEmail}>@{cashier.username}</div>
                             </div>
                             <div className={styles.userMeta}>
-                                <span className={`${styles.roleBadge} ${styles[`role${user.role.charAt(0).toUpperCase() + user.role.slice(1)}`]}`}>
-                                    {getRoleLabel(user.role)}
+                                <span className={`${styles.roleBadge} ${cashier.is_active ? styles.roleActive : styles.roleInactive}`}>
+                                    {cashier.is_active ? 'Aktif' : 'Tidak Aktif'}
                                 </span>
                                 <div className={styles.userActions}>
                                     <button
                                         className={styles.actionBtn}
-                                        onClick={() => openModal(user)}
+                                        onClick={() => toggleActive(cashier)}
+                                        title={cashier.is_active ? 'Nonaktifkan' : 'Aktifkan'}
+                                    >
+                                        {cashier.is_active ? <EyeOff size={16} /> : <Eye size={16} />}
+                                    </button>
+                                    <button
+                                        className={styles.actionBtn}
+                                        onClick={() => openModal(cashier)}
                                         title="Edit"
                                     >
                                         <Edit2 size={16} />
                                     </button>
                                     <button
                                         className={`${styles.actionBtn} ${styles.deleteBtn}`}
-                                        onClick={() => handleDelete(user.id)}
+                                        onClick={() => handleDelete(cashier.id)}
                                         title="Hapus"
                                     >
                                         <Trash2 size={16} />
@@ -230,7 +292,7 @@ export default function UsersPage() {
                     <div className="modal" onClick={(e) => e.stopPropagation()}>
                         <div className="modal-header">
                             <h2 className="modal-title">
-                                {editingUser ? 'Edit Pengguna' : 'Tambah Pengguna'}
+                                {editingCashier ? 'Edit Kasir' : 'Tambah Kasir'}
                             </h2>
                             <button className={styles.closeBtn} onClick={closeModal}>
                                 <X size={20} />
@@ -239,6 +301,13 @@ export default function UsersPage() {
 
                         <form onSubmit={handleSubmit}>
                             <div className={styles.modalBody}>
+                                {error && (
+                                    <div className={styles.errorAlert}>
+                                        <AlertCircle size={16} />
+                                        {error}
+                                    </div>
+                                )}
+
                                 <div className={styles.formGroup}>
                                     <label className={styles.label}>Nama Lengkap</label>
                                     <input
@@ -246,43 +315,61 @@ export default function UsersPage() {
                                         className={styles.input}
                                         value={name}
                                         onChange={(e) => setName(e.target.value)}
-                                        placeholder="Nama pengguna"
+                                        placeholder="Nama kasir"
                                         required
                                     />
                                 </div>
 
                                 <div className={styles.formGroup}>
-                                    <label className={styles.label}>Email</label>
+                                    <label className={styles.label}>Username</label>
                                     <input
-                                        type="email"
+                                        type="text"
                                         className={styles.input}
-                                        value={email}
-                                        onChange={(e) => setEmail(e.target.value)}
-                                        placeholder="email@example.com"
-                                        disabled={!!editingUser}
+                                        value={username}
+                                        onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/\s/g, ''))}
+                                        placeholder="username (tanpa spasi)"
                                         required
                                     />
+                                    <p className={styles.inputHint}>Username digunakan untuk login kasir</p>
                                 </div>
 
                                 <div className={styles.formGroup}>
-                                    <label className={styles.label}>Role / Peran</label>
-                                    <div className={styles.roleOptions}>
-                                        {(['owner', 'admin', 'cashier'] as UserRole[]).map((r) => (
-                                            <div
-                                                key={r}
-                                                className={`${styles.roleOption} ${role === r ? styles.roleOptionActive : ''}`}
-                                                onClick={() => setRole(r)}
-                                            >
-                                                <div className={`${styles.roleIcon} ${styles[`roleIcon${r.charAt(0).toUpperCase() + r.slice(1)}`]}`}>
-                                                    {r === 'owner' && <Crown size={16} />}
-                                                    {r === 'admin' && <Shield size={16} />}
-                                                    {r === 'cashier' && <UserIcon size={16} />}
-                                                </div>
-                                                <span className={styles.roleName}>{getRoleLabel(r)}</span>
-                                            </div>
-                                        ))}
+                                    <label className={styles.label}>
+                                        Password
+                                        {editingCashier && <span className={styles.labelHint}> (kosongkan jika tidak ingin mengubah)</span>}
+                                    </label>
+                                    <div className={styles.passwordInput}>
+                                        <input
+                                            type={showPassword ? 'text' : 'password'}
+                                            className={styles.input}
+                                            value={password}
+                                            onChange={(e) => setPassword(e.target.value)}
+                                            placeholder={editingCashier ? '••••••••' : 'Minimal 4 karakter'}
+                                            required={!editingCashier}
+                                        />
+                                        <button
+                                            type="button"
+                                            className={styles.passwordToggle}
+                                            onClick={() => setShowPassword(!showPassword)}
+                                        >
+                                            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                        </button>
                                     </div>
                                 </div>
+
+                                {password && (
+                                    <div className={styles.formGroup}>
+                                        <label className={styles.label}>Konfirmasi Password</label>
+                                        <input
+                                            type={showPassword ? 'text' : 'password'}
+                                            className={styles.input}
+                                            value={confirmPassword}
+                                            onChange={(e) => setConfirmPassword(e.target.value)}
+                                            placeholder="Ketik ulang password"
+                                            required
+                                        />
+                                    </div>
+                                )}
                             </div>
 
                             <div className="modal-footer">

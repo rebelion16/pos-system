@@ -286,6 +286,7 @@ export interface Database {
                     store_address: string | null
                     store_phone: string | null
                     store_logo: string | null
+                    store_code: string | null
                     tax_rate: number
                     currency: string
                     theme: string
@@ -300,6 +301,7 @@ export interface Database {
                     store_address?: string | null
                     store_phone?: string | null
                     store_logo?: string | null
+                    store_code?: string | null
                     tax_rate?: number
                     currency?: string
                     theme?: string
@@ -313,11 +315,42 @@ export interface Database {
                     store_address?: string | null
                     store_phone?: string | null
                     store_logo?: string | null
+                    store_code?: string | null
                     tax_rate?: number
                     currency?: string
                     theme?: string
                     printer_enabled?: boolean
                     printer_name?: string | null
+                    updated_at?: string
+                }
+            }
+            cashiers: {
+                Row: {
+                    id: string
+                    username: string
+                    password_hash: string
+                    name: string
+                    store_code: string
+                    is_active: boolean
+                    created_at: string
+                    updated_at: string
+                }
+                Insert: {
+                    id?: string
+                    username: string
+                    password_hash: string
+                    name: string
+                    store_code: string
+                    is_active?: boolean
+                    created_at?: string
+                    updated_at?: string
+                }
+                Update: {
+                    username?: string
+                    password_hash?: string
+                    name?: string
+                    store_code?: string
+                    is_active?: boolean
                     updated_at?: string
                 }
             }
@@ -347,6 +380,7 @@ export type Transaction = Database['public']['Tables']['transactions']['Row']
 export type TransactionItem = Database['public']['Tables']['transaction_items']['Row']
 export type BankAccount = Database['public']['Tables']['bank_accounts']['Row']
 export type Settings = Database['public']['Tables']['settings']['Row']
+export type Cashier = Database['public']['Tables']['cashiers']['Row']
 
 // Extended types with relations
 export type ProductWithRelations = Product & {
