@@ -2,16 +2,25 @@
 
 import { useEffect, useState } from 'react'
 import { Search, FileText, Calendar, Download } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
-import { TransactionWithItems } from '@/types/database'
+import { localStorageService } from '@/lib/localStorage'
+import { Transaction } from '@/types/database'
 import styles from './transactions.module.css'
+
+interface TransactionWithItems extends Transaction {
+    items?: Array<{
+        id: string
+        product_name: string
+        quantity: number
+        price: number
+        subtotal: number
+    }>
+}
 
 export default function TransactionsPage() {
     const [transactions, setTransactions] = useState<TransactionWithItems[]>([])
     const [loading, setLoading] = useState(true)
     const [searchQuery, setSearchQuery] = useState('')
     const [dateFilter, setDateFilter] = useState('')
-    const supabase = createClient()
 
     useEffect(() => {
         fetchTransactions()
@@ -19,29 +28,29 @@ export default function TransactionsPage() {
 
     const fetchTransactions = async () => {
         try {
-            let query = supabase
-                .from('transactions')
-                .select(`
-          *,
-          items:transaction_items(*),
-          user:users(name)
-        `)
-                .order('created_at', { ascending: false })
-                .limit(100)
+            const allTransactions = localStorageService.getTransactions()
+            const allItems = localStorageService.getTransactionItems()
 
+            // Combine transactions with their items
+            let txWithItems: TransactionWithItems[] = allTransactions.map(tx => ({
+                ...tx,
+                items: allItems.filter(item => item.transaction_id === tx.id)
+            }))
+
+            // Sort by date descending
+            txWithItems.sort((a, b) =>
+                new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+            )
+
+            // Filter by date if set
             if (dateFilter) {
-                const startDate = new Date(dateFilter)
-                startDate.setHours(0, 0, 0, 0)
-                const endDate = new Date(dateFilter)
-                endDate.setHours(23, 59, 59, 999)
-
-                query = query
-                    .gte('created_at', startDate.toISOString())
-                    .lte('created_at', endDate.toISOString())
+                const filterDate = new Date(dateFilter).toISOString().split('T')[0]
+                txWithItems = txWithItems.filter(tx =>
+                    tx.created_at.startsWith(filterDate)
+                )
             }
 
-            const { data } = await query
-            setTransactions(data || [])
+            setTransactions(txWithItems)
         } catch (error) {
             console.error('Error fetching transactions:', error)
         } finally {

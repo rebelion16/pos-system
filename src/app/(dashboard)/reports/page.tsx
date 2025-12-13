@@ -10,7 +10,7 @@ import {
     FileSpreadsheet,
     Check
 } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
+import { localStorageService } from '@/lib/localStorage'
 import { Button } from '@/components/ui'
 import styles from './reports.module.css'
 
@@ -40,7 +40,6 @@ export default function ReportsPage() {
     const [exporting, setExporting] = useState(false)
     const [exportSuccess, setExportSuccess] = useState(false)
     const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today')
-    const supabase = createClient()
 
     useEffect(() => {
         fetchReportData()
@@ -72,18 +71,24 @@ export default function ReportsPage() {
         try {
             const { start, end } = getDateRange()
 
-            // Fetch transactions
-            const { data } = await supabase
-                .from('transactions')
-                .select(`
-          *,
-          items:transaction_items(*)
-        `)
-                .eq('payment_status', 'completed')
-                .gte('created_at', start.toISOString())
-                .lte('created_at', end.toISOString())
+            // Fetch from localStorage
+            const allTransactions = localStorageService.getTransactions()
+            const allItems = localStorageService.getTransactionItems()
 
-            const txList = (data || []) as unknown as TransactionData[]
+            // Filter by date and status
+            const filteredTx = allTransactions.filter(tx => {
+                const txDate = new Date(tx.created_at)
+                return tx.payment_status === 'completed' &&
+                    txDate >= start &&
+                    txDate <= end
+            })
+
+            // Add items to transactions
+            const txList: TransactionData[] = filteredTx.map(tx => ({
+                ...tx,
+                items: allItems.filter(item => item.transaction_id === tx.id)
+            }))
+
             setTransactions(txList)
 
             if (!txList.length) {
