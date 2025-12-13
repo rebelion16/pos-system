@@ -579,6 +579,42 @@ export const firestoreService = {
             theme: 'light-blue',
         })
     },
+
+    // Delete all products and transactions (sales data reset)
+    deleteAllProductsAndTransactions: async (): Promise<{ productsDeleted: number; transactionsDeleted: number }> => {
+        if (!db) throw new Error('Firestore not configured')
+
+        let productsDeleted = 0
+        let transactionsDeleted = 0
+
+        // Delete all products
+        const productsSnapshot = await getDocs(collection(db, COLLECTIONS.products))
+        for (const docSnap of productsSnapshot.docs) {
+            await deleteDoc(doc(db, COLLECTIONS.products, docSnap.id))
+            productsDeleted++
+        }
+
+        // Delete all transactions
+        const transactionsSnapshot = await getDocs(collection(db, COLLECTIONS.transactions))
+        for (const docSnap of transactionsSnapshot.docs) {
+            await deleteDoc(doc(db, COLLECTIONS.transactions, docSnap.id))
+            transactionsDeleted++
+        }
+
+        // Delete all transaction items
+        const itemsSnapshot = await getDocs(collection(db, COLLECTIONS.transactionItems))
+        for (const docSnap of itemsSnapshot.docs) {
+            await deleteDoc(doc(db, COLLECTIONS.transactionItems, docSnap.id))
+        }
+
+        // Delete all stock history
+        const historySnapshot = await getDocs(collection(db, COLLECTIONS.stockHistory))
+        for (const docSnap of historySnapshot.docs) {
+            await deleteDoc(doc(db, COLLECTIONS.stockHistory, docSnap.id))
+        }
+
+        return { productsDeleted, transactionsDeleted }
+    },
 }
 
 export default firestoreService

@@ -41,6 +41,7 @@ export default function SettingsPage() {
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
     const [showSaved, setShowSaved] = useState(false)
+    const [deleting, setDeleting] = useState(false)
 
     // Form states
     const [storeName, setStoreName] = useState('')
@@ -403,9 +404,9 @@ export default function SettingsPage() {
                         <Trash2 size={20} />
                     </div>
                     <div>
-                        <h3 className={styles.sectionTitle}>Reset Data</h3>
+                        <h3 className={styles.sectionTitle}>Hapus Data Penjualan</h3>
                         <p className={styles.sectionDesc}>
-                            Hapus semua data dan kembali ke pengaturan awal
+                            Hapus semua data produk dan transaksi dari database
                         </p>
                     </div>
                 </div>
@@ -415,23 +416,42 @@ export default function SettingsPage() {
                         <div style={{ flex: 1 }}>
                             <p style={{ fontWeight: 500, color: 'var(--danger-700)', marginBottom: '0.25rem' }}>Peringatan!</p>
                             <p style={{ fontSize: '0.875rem', color: 'var(--danger-600)' }}>
-                                Tindakan ini akan menghapus SEMUA data termasuk produk, transaksi, dan pengguna. Data tidak dapat dikembalikan.
+                                Tindakan ini akan menghapus SEMUA data produk, transaksi, dan riwayat stok dari database online. Data tidak dapat dikembalikan.
                             </p>
                         </div>
                         <Button
                             variant="secondary"
                             style={{ background: 'var(--danger-600)', color: 'white', border: 'none' }}
-                            onClick={() => {
-                                if (confirm('Apakah Anda yakin ingin menghapus data lokal? Data di cloud tidak akan terpengaruh.')) {
-                                    if (confirm('Konfirmasi sekali lagi: Hapus data lokal?')) {
-                                        localStorage.clear()
-                                        window.location.href = '/login'
+                            disabled={deleting}
+                            onClick={async () => {
+                                if (confirm('Apakah Anda yakin ingin menghapus SEMUA data produk dan transaksi dari database?')) {
+                                    if (confirm('Konfirmasi sekali lagi: Data akan DIHAPUS PERMANEN dan tidak bisa dikembalikan!')) {
+                                        setDeleting(true)
+                                        try {
+                                            const result = await firestoreService.deleteAllProductsAndTransactions()
+                                            alert(`Berhasil menghapus ${result.productsDeleted} produk dan ${result.transactionsDeleted} transaksi.`)
+                                            window.location.reload()
+                                        } catch (error) {
+                                            console.error('Error deleting data:', error)
+                                            alert('Gagal menghapus data. Silakan coba lagi.')
+                                        } finally {
+                                            setDeleting(false)
+                                        }
                                     }
                                 }
                             }}
                         >
-                            <Trash2 size={16} />
-                            Reset Data Lokal
+                            {deleting ? (
+                                <>
+                                    <div className="spinner" style={{ width: 16, height: 16 }} />
+                                    Menghapus...
+                                </>
+                            ) : (
+                                <>
+                                    <Trash2 size={16} />
+                                    Hapus Data Penjualan
+                                </>
+                            )}
                         </Button>
                     </div>
                 </div>
