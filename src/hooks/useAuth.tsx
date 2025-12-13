@@ -40,24 +40,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         if (!mounted) return
 
-        // Check current session
         const checkSession = async () => {
-            const { data: { session } } = await supabase.auth.getSession()
+            try {
+                const { data: { session } } = await supabase.auth.getSession()
 
-            if (session?.user) {
-                setSupabaseUser(session.user)
-                await fetchUserProfile(session.user.id)
+                if (session?.user) {
+                    setSupabaseUser(session.user)
+                    await fetchUserProfile(session.user)
+                }
+            } catch (err) {
+                console.error('Session check error:', err)
+            } finally {
+                setLoading(false)
             }
-            setLoading(false)
         }
 
         checkSession()
 
-        // Listen for auth changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            console.log('Auth state change:', event)
             if (session?.user) {
                 setSupabaseUser(session.user)
-                await fetchUserProfile(session.user.id)
+                await fetchUserProfile(session.user)
             } else {
                 setSupabaseUser(null)
                 setUser(null)
@@ -68,55 +72,53 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return () => subscription.unsubscribe()
     }, [mounted])
 
-    const fetchUserProfile = async (userId: string) => {
+    // Create user object from Supabase auth user (fallback if no users table)
+    const createUserFromAuth = (authUser: SupabaseUser): User => {
+        return {
+            id: authUser.id,
+            email: authUser.email || '',
+            name: authUser.user_metadata?.full_name || authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'User',
+            role: 'owner',
+            avatar_url: authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture || null,
+            email_verified: authUser.email_confirmed_at !== null
+        }
+    }
+
+    const fetchUserProfile = async (authUser: SupabaseUser) => {
         try {
+            // Try to get from users table
             const { data, error } = await supabase
                 .from('users')
                 .select('*')
-                .eq('id', userId)
+                .eq('id', authUser.id)
                 .single()
 
-            if (error && error.code === 'PGRST116') {
-                // User doesn't exist in users table, create profile
-                const { data: { user: authUser } } = await supabase.auth.getUser()
-                if (authUser) {
-                    const newUser = {
-                        id: authUser.id,
-                        email: authUser.email!,
-                        name: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'User',
-                        role: 'owner',
-                        avatar_url: authUser.user_metadata?.avatar_url || null,
-                    }
+            if (error) {
+                // Table doesn't exist or user not found - use auth data directly
+                console.log('Users table error, using auth data:', error.message)
+                setUser(createUserFromAuth(authUser))
+                return
+            }
 
-                    const { data: insertedUser } = await supabase
-                        .from('users')
-                        .insert(newUser)
-                        .select()
-                        .single()
-
-                    if (insertedUser) {
-                        setUser({
-                            ...insertedUser,
-                            email_verified: authUser.email_confirmed_at !== null
-                        })
-                    }
-                }
-            } else if (data) {
-                const { data: { user: authUser } } = await supabase.auth.getUser()
+            if (data) {
                 setUser({
                     ...data,
-                    email_verified: authUser?.email_confirmed_at !== null
+                    email_verified: authUser.email_confirmed_at !== null
                 })
+            } else {
+                setUser(createUserFromAuth(authUser))
             }
         } catch (err) {
             console.error('Error fetching user profile:', err)
+            // Fallback to auth user data
+            setUser(createUserFromAuth(authUser))
         }
     }
 
     const refreshUser = async () => {
         const { data: { user: authUser } } = await supabase.auth.getUser()
         if (authUser) {
-            await fetchUserProfile(authUser.id)
+            await fetchUserProfile(authUser)
         }
     }
 
@@ -154,7 +156,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 return { error: new Error(error.message) }
             }
 
-            // Check if email confirmation is required
             if (data.user && !data.user.email_confirmed_at) {
                 return { error: null, needsVerification: true }
             }
