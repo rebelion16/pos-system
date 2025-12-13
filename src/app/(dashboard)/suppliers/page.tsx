@@ -12,7 +12,7 @@ import {
     MapPin,
     X
 } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
+import { localStorageService } from '@/lib/localStorage'
 import { Button } from '@/components/ui'
 import { Supplier } from '@/types/database'
 import styles from './suppliers.module.css'
@@ -24,7 +24,6 @@ export default function SuppliersPage() {
     const [showModal, setShowModal] = useState(false)
     const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null)
     const [saving, setSaving] = useState(false)
-    const supabase = createClient()
 
     // Form states
     const [name, setName] = useState('')
@@ -38,13 +37,10 @@ export default function SuppliersPage() {
 
     const fetchSuppliers = async () => {
         try {
-            const { data, error } = await supabase
-                .from('suppliers')
-                .select('*')
-                .order('name', { ascending: true })
-
-            if (error) throw error
-            setSuppliers(data || [])
+            const data = localStorageService.getSuppliers()
+            // Sort by name
+            data.sort((a, b) => a.name.localeCompare(b.name))
+            setSuppliers(data)
         } catch (error) {
             console.error('Error fetching suppliers:', error)
         } finally {
@@ -95,24 +91,14 @@ export default function SuppliersPage() {
                 phone: phone.trim() || null,
                 email: email.trim() || null,
                 address: address.trim() || null,
-                updated_at: new Date().toISOString()
             }
 
             if (editingSupplier) {
                 // Update existing
-                const { error } = await supabase
-                    .from('suppliers')
-                    .update(supplierData)
-                    .eq('id', editingSupplier.id)
-
-                if (error) throw error
+                localStorageService.updateSupplier(editingSupplier.id, supplierData)
             } else {
                 // Insert new
-                const { error } = await supabase
-                    .from('suppliers')
-                    .insert([supplierData])
-
-                if (error) throw error
+                localStorageService.createSupplier(supplierData)
             }
 
             await fetchSuppliers()
@@ -128,12 +114,7 @@ export default function SuppliersPage() {
         if (!confirm('Apakah Anda yakin ingin menghapus supplier ini?')) return
 
         try {
-            const { error } = await supabase
-                .from('suppliers')
-                .delete()
-                .eq('id', id)
-
-            if (error) throw error
+            localStorageService.deleteSupplier(id)
             setSuppliers(suppliers.filter(s => s.id !== id))
         } catch (error) {
             console.error('Error deleting supplier:', error)

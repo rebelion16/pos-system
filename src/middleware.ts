@@ -1,8 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
-    // In local storage mode, we skip Supabase session check
-    // Auth is handled client-side via localStorage
+    // Auth handled client-side via Firebase
     return NextResponse.next()
 }
 

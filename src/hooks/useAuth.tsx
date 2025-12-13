@@ -1,8 +1,18 @@
 'use client'
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { User as SupabaseUser } from '@supabase/supabase-js'
+import { auth, isFirebaseConfigured } from '@/lib/firebase/config'
+import {
+    signInWithEmailAndPassword,
+    createUserWithEmailAndPassword,
+    signInWithPopup,
+    GoogleAuthProvider,
+    signOut as firebaseSignOut,
+    onAuthStateChanged,
+    User as FirebaseUser,
+    updateProfile,
+    sendEmailVerification
+} from 'firebase/auth'
 
 interface User {
     id: string
@@ -15,8 +25,9 @@ interface User {
 
 interface AuthContextType {
     user: User | null
-    supabaseUser: SupabaseUser | null
+    firebaseUser: FirebaseUser | null
     loading: boolean
+    isConfigured: boolean
     signIn: (email: string, password: string) => Promise<{ error: Error | null }>
     signUp: (email: string, password: string, name: string) => Promise<{ error: Error | null; needsVerification?: boolean }>
     signInWithGoogle: () => Promise<{ error: Error | null }>
@@ -26,12 +37,13 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+const googleProvider = new GoogleAuthProvider()
+
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null)
-    const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null)
+    const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null)
     const [loading, setLoading] = useState(true)
     const [mounted, setMounted] = useState(false)
-    const supabase = createClient()
 
     useEffect(() => {
         setMounted(true)
@@ -40,163 +52,135 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         if (!mounted) return
 
-        const checkSession = async () => {
-            try {
-                const { data: { session } } = await supabase.auth.getSession()
-
-                if (session?.user) {
-                    setSupabaseUser(session.user)
-                    await fetchUserProfile(session.user)
-                }
-            } catch (err) {
-                console.error('Session check error:', err)
-            } finally {
-                setLoading(false)
-            }
+        // If Firebase is not configured, stop loading
+        if (!isFirebaseConfigured || !auth) {
+            setLoading(false)
+            return
         }
 
-        checkSession()
-
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-            console.log('Auth state change:', event)
-            if (session?.user) {
-                setSupabaseUser(session.user)
-                await fetchUserProfile(session.user)
+        const unsubscribe = onAuthStateChanged(auth, async (authUser) => {
+            if (authUser) {
+                setFirebaseUser(authUser)
+                setUser(createUserFromAuth(authUser))
             } else {
-                setSupabaseUser(null)
+                setFirebaseUser(null)
                 setUser(null)
             }
             setLoading(false)
         })
 
-        return () => subscription.unsubscribe()
+        return () => unsubscribe()
     }, [mounted])
 
-    // Create user object from Supabase auth user (fallback if no users table)
-    const createUserFromAuth = (authUser: SupabaseUser): User => {
+    // Create user object from Firebase auth user
+    const createUserFromAuth = (authUser: FirebaseUser): User => {
         return {
-            id: authUser.id,
+            id: authUser.uid,
             email: authUser.email || '',
-            name: authUser.user_metadata?.full_name || authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'User',
-            role: 'owner',
-            avatar_url: authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture || null,
-            email_verified: authUser.email_confirmed_at !== null
-        }
-    }
-
-    const fetchUserProfile = async (authUser: SupabaseUser) => {
-        try {
-            // Try to get from users table
-            const { data, error } = await supabase
-                .from('users')
-                .select('*')
-                .eq('id', authUser.id)
-                .single()
-
-            if (error) {
-                // Table doesn't exist or user not found - use auth data directly
-                console.log('Users table error, using auth data:', error.message)
-                setUser(createUserFromAuth(authUser))
-                return
-            }
-
-            if (data) {
-                setUser({
-                    ...data,
-                    email_verified: authUser.email_confirmed_at !== null
-                })
-            } else {
-                setUser(createUserFromAuth(authUser))
-            }
-        } catch (err) {
-            console.error('Error fetching user profile:', err)
-            // Fallback to auth user data
-            setUser(createUserFromAuth(authUser))
+            name: authUser.displayName || authUser.email?.split('@')[0] || 'User',
+            role: 'owner', // Default role for new users
+            avatar_url: authUser.photoURL || null,
+            email_verified: authUser.emailVerified
         }
     }
 
     const refreshUser = async () => {
-        const { data: { user: authUser } } = await supabase.auth.getUser()
-        if (authUser) {
-            await fetchUserProfile(authUser)
+        if (!auth) return
+        if (auth.currentUser) {
+            await auth.currentUser.reload()
+            setUser(createUserFromAuth(auth.currentUser))
         }
     }
 
     const signIn = async (email: string, password: string) => {
+        if (!auth) {
+            return { error: new Error('Firebase tidak dikonfigurasi') }
+        }
         try {
-            const { error } = await supabase.auth.signInWithPassword({
-                email,
-                password,
-            })
-
-            if (error) {
-                return { error: new Error(error.message) }
-            }
-
+            await signInWithEmailAndPassword(auth, email, password)
             return { error: null }
         } catch (err) {
-            return { error: err as Error }
+            const error = err as Error
+            let message = error.message
+
+            // Translate Firebase error messages to Indonesian
+            if (message.includes('auth/invalid-credential') || message.includes('auth/wrong-password') || message.includes('auth/user-not-found')) {
+                message = 'Email atau password salah'
+            } else if (message.includes('auth/too-many-requests')) {
+                message = 'Terlalu banyak percobaan. Coba lagi nanti.'
+            }
+
+            return { error: new Error(message) }
         }
     }
 
     const signUp = async (email: string, password: string, name: string) => {
+        if (!auth) {
+            return { error: new Error('Firebase tidak dikonfigurasi') }
+        }
         try {
-            const { error, data } = await supabase.auth.signUp({
-                email,
-                password,
-                options: {
-                    emailRedirectTo: `${window.location.origin}/login`,
-                    data: {
-                        full_name: name,
-                    }
-                }
-            })
+            const { user: newUser } = await createUserWithEmailAndPassword(auth, email, password)
 
-            if (error) {
-                return { error: new Error(error.message) }
-            }
+            // Update display name
+            await updateProfile(newUser, { displayName: name })
 
-            if (data.user && !data.user.email_confirmed_at) {
-                return { error: null, needsVerification: true }
-            }
+            // Send email verification
+            await sendEmailVerification(newUser)
 
-            return { error: null }
+            return { error: null, needsVerification: true }
         } catch (err) {
-            return { error: err as Error }
+            const error = err as Error
+            let message = error.message
+
+            // Translate Firebase error messages to Indonesian
+            if (message.includes('auth/email-already-in-use')) {
+                message = 'Email sudah terdaftar'
+            } else if (message.includes('auth/weak-password')) {
+                message = 'Password terlalu lemah'
+            } else if (message.includes('auth/invalid-email')) {
+                message = 'Format email tidak valid'
+            }
+
+            return { error: new Error(message) }
         }
     }
 
     const signInWithGoogle = async () => {
+        if (!auth) {
+            return { error: new Error('Firebase tidak dikonfigurasi') }
+        }
         try {
-            const { error } = await supabase.auth.signInWithOAuth({
-                provider: 'google',
-                options: {
-                    redirectTo: `${window.location.origin}/dashboard`,
-                }
-            })
-
-            if (error) {
-                return { error: new Error(error.message) }
-            }
-
+            await signInWithPopup(auth, googleProvider)
             return { error: null }
         } catch (err) {
-            return { error: err as Error }
+            const error = err as Error
+            let message = error.message
+
+            if (message.includes('auth/popup-closed-by-user')) {
+                message = 'Login dibatalkan'
+            } else if (message.includes('auth/popup-blocked')) {
+                message = 'Popup diblokir browser. Izinkan popup untuk melanjutkan.'
+            }
+
+            return { error: new Error(message) }
         }
     }
 
     const signOut = async () => {
-        await supabase.auth.signOut()
+        if (auth) {
+            await firebaseSignOut(auth)
+        }
         setUser(null)
-        setSupabaseUser(null)
+        setFirebaseUser(null)
     }
 
     if (!mounted) {
         return (
             <AuthContext.Provider value={{
                 user: null,
-                supabaseUser: null,
+                firebaseUser: null,
                 loading: true,
+                isConfigured: isFirebaseConfigured,
                 signIn,
                 signUp,
                 signInWithGoogle,
@@ -211,8 +195,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return (
         <AuthContext.Provider value={{
             user,
-            supabaseUser,
+            firebaseUser,
             loading,
+            isConfigured: isFirebaseConfigured,
             signIn,
             signUp,
             signInWithGoogle,

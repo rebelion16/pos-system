@@ -11,7 +11,7 @@ import {
     User as UserIcon,
     X
 } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
+import { localStorageService } from '@/lib/localStorage'
 import { Button } from '@/components/ui'
 import { User, UserRole } from '@/types/database'
 import styles from './users.module.css'
@@ -29,7 +29,6 @@ export default function UsersPage() {
     const [showModal, setShowModal] = useState(false)
     const [editingUser, setEditingUser] = useState<FormUser | null>(null)
     const [saving, setSaving] = useState(false)
-    const supabase = createClient()
 
     // Form states
     const [name, setName] = useState('')
@@ -42,13 +41,8 @@ export default function UsersPage() {
 
     const fetchUsers = async () => {
         try {
-            const { data, error } = await supabase
-                .from('users')
-                .select('*')
-                .order('created_at', { ascending: false })
-
-            if (error) throw error
-            setUsers(data || [])
+            const data = localStorageService.getUsers()
+            setUsers(data)
         } catch (error) {
             console.error('Error fetching users:', error)
         } finally {
@@ -86,21 +80,26 @@ export default function UsersPage() {
         setSaving(true)
         try {
             if (editingUser?.id) {
-                // Update existing user
-                const { error } = await supabase
-                    .from('users')
-                    .update({
+                // Update existing user in localStorage
+                const allUsers = localStorageService.getUsers()
+                const index = allUsers.findIndex(u => u.id === editingUser.id)
+                if (index !== -1) {
+                    allUsers[index] = {
+                        ...allUsers[index],
                         name: name.trim(),
                         role,
                         updated_at: new Date().toISOString()
-                    })
-                    .eq('id', editingUser.id)
-
-                if (error) throw error
+                    }
+                    localStorage.setItem('pos_users', JSON.stringify(allUsers))
+                }
             } else {
-                // Note: Creating new users requires Supabase Auth signup
-                // This is placeholder for admin creating users
-                console.log('New user creation requires auth signup')
+                // Create new user
+                localStorageService.createUser({
+                    email: email.trim(),
+                    name: name.trim(),
+                    role,
+                    avatar_url: null
+                })
             }
 
             await fetchUsers()
@@ -116,13 +115,10 @@ export default function UsersPage() {
         if (!confirm('Apakah Anda yakin ingin menghapus pengguna ini?')) return
 
         try {
-            const { error } = await supabase
-                .from('users')
-                .delete()
-                .eq('id', id)
-
-            if (error) throw error
-            setUsers(users.filter(u => u.id !== id))
+            const allUsers = localStorageService.getUsers()
+            const filtered = allUsers.filter(u => u.id !== id)
+            localStorage.setItem('pos_users', JSON.stringify(filtered))
+            setUsers(filtered)
         } catch (error) {
             console.error('Error deleting user:', error)
         }
