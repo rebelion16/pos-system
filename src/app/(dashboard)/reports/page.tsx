@@ -8,12 +8,9 @@ import {
     Calendar,
     Download,
     FileSpreadsheet,
-    Check,
-    Cloud,
-    CloudOff
+    Check
 } from 'lucide-react'
 import { localStorageService } from '@/lib/localStorage'
-import { syncTransactionsToSheets } from '@/lib/googleSheets'
 import { Button } from '@/components/ui'
 import styles from './reports.module.css'
 
@@ -42,9 +39,6 @@ export default function ReportsPage() {
     const [loading, setLoading] = useState(true)
     const [exporting, setExporting] = useState(false)
     const [exportSuccess, setExportSuccess] = useState(false)
-    const [syncing, setSyncing] = useState(false)
-    const [syncStatus, setSyncStatus] = useState<'idle' | 'success' | 'error'>('idle')
-    const [syncMessage, setSyncMessage] = useState('')
     const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today')
 
     useEffect(() => {
@@ -239,43 +233,6 @@ export default function ReportsPage() {
                 </div>
                 <div className={styles.headerActions}>
                     <Button
-                        variant={syncStatus === 'success' ? "primary" : syncStatus === 'error' ? "secondary" : "secondary"}
-                        onClick={async () => {
-                            setSyncing(true)
-                            setSyncStatus('idle')
-                            const result = await syncTransactionsToSheets()
-                            setSyncing(false)
-                            setSyncStatus(result.success ? 'success' : 'error')
-                            setSyncMessage(result.message)
-                            if (result.success) {
-                                setTimeout(() => setSyncStatus('idle'), 3000)
-                            }
-                        }}
-                        disabled={syncing}
-                    >
-                        {syncing ? (
-                            <>
-                                <div className="spinner" style={{ width: '16px', height: '16px' }} />
-                                Sync...
-                            </>
-                        ) : syncStatus === 'success' ? (
-                            <>
-                                <Check size={18} />
-                                Synced!
-                            </>
-                        ) : syncStatus === 'error' ? (
-                            <>
-                                <CloudOff size={18} />
-                                Gagal
-                            </>
-                        ) : (
-                            <>
-                                <Cloud size={18} />
-                                Sync ke Sheets
-                            </>
-                        )}
-                    </Button>
-                    <Button
                         variant={exportSuccess ? "primary" : "secondary"}
                         onClick={exportToCSV}
                         disabled={exporting || transactions.length === 0}
@@ -293,7 +250,7 @@ export default function ReportsPage() {
                         ) : (
                             <>
                                 <FileSpreadsheet size={18} />
-                                Export CSV
+                                Export Excel
                             </>
                         )}
                     </Button>
