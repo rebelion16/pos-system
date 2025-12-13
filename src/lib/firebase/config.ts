@@ -19,14 +19,25 @@ let db: Firestore | null = null
 // Check if Firebase is configured
 const isFirebaseConfigured = Boolean(firebaseConfig.apiKey && firebaseConfig.projectId)
 
+// Debug logging
+if (typeof window !== 'undefined') {
+    console.log('[Firebase Config] API Key exists:', !!firebaseConfig.apiKey)
+    console.log('[Firebase Config] Project ID:', firebaseConfig.projectId)
+    console.log('[Firebase Config] Is configured:', isFirebaseConfigured)
+}
+
 if (isFirebaseConfigured && typeof window !== 'undefined') {
     try {
         app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0]
         auth = getAuth(app)
         db = getFirestore(app)
+        console.log('[Firebase] Successfully initialized. Firestore db:', !!db)
     } catch (error) {
-        console.error('Firebase initialization error:', error)
+        console.error('[Firebase] Initialization error:', error)
     }
+} else if (typeof window !== 'undefined') {
+    console.warn('[Firebase] NOT configured - missing API key or project ID')
 }
 
 export { app, auth, db, isFirebaseConfigured }
+

@@ -29,6 +29,7 @@ export default function CategoriesPage() {
         color: '#3B82F6',
     })
     const [saving, setSaving] = useState(false)
+    const [error, setError] = useState('')
 
     useEffect(() => {
         fetchCategories()
@@ -48,27 +49,34 @@ export default function CategoriesPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setSaving(true)
+        setError('')
 
         try {
+            console.log('[Categories] Attempting to save:', formData)
             if (editingCategory) {
                 await firestoreService.updateCategory(editingCategory.id, {
                     name: formData.name,
                     description: formData.description || null,
                     color: formData.color,
                 })
+                console.log('[Categories] Updated successfully')
             } else {
-                await firestoreService.createCategory({
+                const result = await firestoreService.createCategory({
                     name: formData.name,
                     description: formData.description || null,
                     color: formData.color,
                 })
+                console.log('[Categories] Created successfully:', result)
             }
 
             setShowModal(false)
             resetForm()
             fetchCategories()
-        } catch (error) {
-            console.error('Error saving category:', error)
+        } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : 'Unknown error'
+            console.error('[Categories] Error saving:', err)
+            setError(`Gagal menyimpan: ${errorMessage}`)
+            alert(`Error: ${errorMessage}`)
         } finally {
             setSaving(false)
         }
