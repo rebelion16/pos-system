@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState } from 'react'
 import {
     Plus,
     Search,
@@ -10,7 +10,7 @@ import {
     X,
     Upload
 } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
+import { localStorageService } from '@/lib/localStorage'
 import { Product, Category, ProductWithRelations } from '@/types/database'
 import { Button, Input } from '@/components/ui'
 import styles from './products.module.css'
@@ -38,9 +38,6 @@ export default function ProductsPage() {
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState('')
 
-    // Memoize supabase client
-    const supabase = useMemo(() => createClient(), [])
-
     useEffect(() => {
         fetchProducts()
         fetchCategories()
@@ -48,21 +45,8 @@ export default function ProductsPage() {
 
     const fetchProducts = async () => {
         try {
-            const { data, error } = await supabase
-                .from('products')
-                .select(`
-          *,
-          category:categories(*)
-        `)
-                .order('created_at', { ascending: false })
-
-            if (error) {
-                // Silently handle if table doesn't exist
-                console.warn('Products table may not exist yet:', error.message)
-                setProducts([])
-            } else {
-                setProducts(data || [])
-            }
+            const data = localStorageService.getProductsWithRelations()
+            setProducts(data)
         } catch (err) {
             console.warn('Error fetching products:', err)
             setProducts([])
@@ -72,11 +56,8 @@ export default function ProductsPage() {
     }
 
     const fetchCategories = async () => {
-        const { data } = await supabase
-            .from('categories')
-            .select('*')
-            .order('name')
-        setCategories(data || [])
+        const data = localStorageService.getCategories()
+        setCategories(data)
     }
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -95,22 +76,15 @@ export default function ProductsPage() {
                 stock: parseInt(formData.stock) || 0,
                 min_stock: parseInt(formData.min_stock) || 5,
                 category_id: formData.category_id || null,
+                supplier_id: null,
+                image_url: null,
                 is_active: formData.is_active,
             }
 
             if (editingProduct) {
-                const { error } = await supabase
-                    .from('products')
-                    .update(productData)
-                    .eq('id', editingProduct.id)
-
-                if (error) throw error
+                localStorageService.updateProduct(editingProduct.id, productData)
             } else {
-                const { error } = await supabase
-                    .from('products')
-                    .insert(productData)
-
-                if (error) throw error
+                localStorageService.createProduct(productData)
             }
 
             setShowModal(false)
@@ -145,12 +119,7 @@ export default function ProductsPage() {
         if (!confirm(`Hapus produk "${product.name}"?`)) return
 
         try {
-            const { error } = await supabase
-                .from('products')
-                .delete()
-                .eq('id', product.id)
-
-            if (error) throw error
+            localStorageService.deleteProduct(product.id)
             fetchProducts()
         } catch (error) {
             console.error('Error deleting product:', error)

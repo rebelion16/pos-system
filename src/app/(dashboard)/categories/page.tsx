@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { Plus, Edit, Trash2, FolderOpen, X } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
+import { localStorageService } from '@/lib/localStorage'
 import { Category } from '@/types/database'
 import { Button, Input } from '@/components/ui'
 import styles from './categories.module.css'
@@ -29,7 +29,6 @@ export default function CategoriesPage() {
         color: '#3B82F6',
     })
     const [saving, setSaving] = useState(false)
-    const supabase = createClient()
 
     useEffect(() => {
         fetchCategories()
@@ -37,12 +36,8 @@ export default function CategoriesPage() {
 
     const fetchCategories = async () => {
         try {
-            const { data } = await supabase
-                .from('categories')
-                .select('*')
-                .order('name')
-
-            setCategories(data || [])
+            const data = localStorageService.getCategories()
+            setCategories(data)
         } catch (error) {
             console.error('Error fetching categories:', error)
         } finally {
@@ -56,22 +51,17 @@ export default function CategoriesPage() {
 
         try {
             if (editingCategory) {
-                await supabase
-                    .from('categories')
-                    .update({
-                        name: formData.name,
-                        description: formData.description || null,
-                        color: formData.color,
-                    })
-                    .eq('id', editingCategory.id)
+                localStorageService.updateCategory(editingCategory.id, {
+                    name: formData.name,
+                    description: formData.description || null,
+                    color: formData.color,
+                })
             } else {
-                await supabase
-                    .from('categories')
-                    .insert({
-                        name: formData.name,
-                        description: formData.description || null,
-                        color: formData.color,
-                    })
+                localStorageService.createCategory({
+                    name: formData.name,
+                    description: formData.description || null,
+                    color: formData.color,
+                })
             }
 
             setShowModal(false)
@@ -98,7 +88,7 @@ export default function CategoriesPage() {
         if (!confirm(`Hapus kategori "${category.name}"?`)) return
 
         try {
-            await supabase.from('categories').delete().eq('id', category.id)
+            localStorageService.deleteCategory(category.id)
             fetchCategories()
         } catch (error) {
             console.error('Error deleting category:', error)

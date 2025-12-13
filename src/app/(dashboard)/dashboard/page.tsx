@@ -6,12 +6,11 @@ import {
     TrendingDown,
     ShoppingCart,
     Package,
-    DollarSign,
     Users,
     ArrowRight
 } from 'lucide-react'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
+import { localStorageService } from '@/lib/localStorage'
 import { useAuth } from '@/hooks/useAuth'
 import styles from './dashboard.module.css'
 
@@ -44,7 +43,6 @@ export default function DashboardPage() {
     })
     const [recentTransactions, setRecentTransactions] = useState<RecentTransaction[]>([])
     const [loading, setLoading] = useState(true)
-    const supabase = createClient()
 
     useEffect(() => {
         fetchDashboardData()
@@ -52,68 +50,49 @@ export default function DashboardPage() {
 
     const fetchDashboardData = async () => {
         try {
+            // Get data from localStorage
+            const products = localStorageService.getProducts()
+            const transactions = localStorageService.getTransactions()
+            const todayTransactions = localStorageService.getTodayTransactions()
+
             const today = new Date()
-            today.setHours(0, 0, 0, 0)
             const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
             const startOfLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1)
             const endOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0)
 
-            // Fetch today's transactions
-            const { data: todayTx } = await supabase
-                .from('transactions')
-                .select('total')
-                .gte('created_at', today.toISOString())
-                .eq('payment_status', 'completed')
+            // Calculate stats
+            const todaySales = todayTransactions
+                .filter(t => t.payment_status === 'completed')
+                .reduce((sum, t) => sum + Number(t.total), 0)
 
-            // Fetch this month's sales
-            const { data: monthTx } = await supabase
-                .from('transactions')
-                .select('total')
-                .gte('created_at', startOfMonth.toISOString())
-                .eq('payment_status', 'completed')
+            const monthlySales = transactions
+                .filter(t => new Date(t.created_at) >= startOfMonth && t.payment_status === 'completed')
+                .reduce((sum, t) => sum + Number(t.total), 0)
 
-            // Fetch last month's sales
-            const { data: lastMonthTx } = await supabase
-                .from('transactions')
-                .select('total')
-                .gte('created_at', startOfLastMonth.toISOString())
-                .lte('created_at', endOfLastMonth.toISOString())
-                .eq('payment_status', 'completed')
+            const lastMonthSales = transactions
+                .filter(t => {
+                    const txDate = new Date(t.created_at)
+                    return txDate >= startOfLastMonth && txDate <= endOfLastMonth && t.payment_status === 'completed'
+                })
+                .reduce((sum, t) => sum + Number(t.total), 0)
 
-            // Fetch total products
-            const { count: productCount } = await supabase
-                .from('products')
-                .select('*', { count: 'exact', head: true })
-                .eq('is_active', true)
-
-            // Fetch low stock products
-            const { count: lowStockCount } = await supabase
-                .from('products')
-                .select('*', { count: 'exact', head: true })
-                .eq('is_active', true)
-                .lt('stock', 10)
-
-            // Fetch recent transactions
-            const { data: recent } = await supabase
-                .from('transactions')
-                .select('id, invoice_number, total, payment_method, created_at')
-                .order('created_at', { ascending: false })
-                .limit(5)
-
-            const todaySales = todayTx?.reduce((sum, t) => sum + Number(t.total), 0) || 0
-            const monthlySales = monthTx?.reduce((sum, t) => sum + Number(t.total), 0) || 0
-            const lastMonthSales = lastMonthTx?.reduce((sum, t) => sum + Number(t.total), 0) || 0
+            const activeProducts = products.filter(p => p.is_active)
+            const lowStockProducts = activeProducts.filter(p => p.stock < p.min_stock)
 
             setStats({
                 todaySales,
-                todayTransactions: todayTx?.length || 0,
-                totalProducts: productCount || 0,
-                lowStockProducts: lowStockCount || 0,
+                todayTransactions: todayTransactions.length,
+                totalProducts: activeProducts.length,
+                lowStockProducts: lowStockProducts.length,
                 monthlySales,
                 lastMonthSales,
             })
 
-            setRecentTransactions(recent || [])
+            // Recent transactions
+            const recent = transactions
+                .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                .slice(0, 5)
+            setRecentTransactions(recent)
         } catch (error) {
             console.error('Error fetching dashboard data:', error)
         } finally {

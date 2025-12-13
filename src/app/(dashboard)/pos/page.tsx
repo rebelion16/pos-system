@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef, useMemo } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import {
     Search,
     ShoppingCart,
@@ -14,7 +14,7 @@ import {
     Check,
     Package
 } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
+import { localStorageService } from '@/lib/localStorage'
 import { Product, Category, ProductWithRelations, PaymentMethod } from '@/types/database'
 import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui'
@@ -41,9 +41,6 @@ export default function POSPage() {
     const [lastInvoice, setLastInvoice] = useState('')
     const searchRef = useRef<HTMLInputElement>(null)
 
-    // Memoize supabase client
-    const supabase = useMemo(() => createClient(), [])
-
     useEffect(() => {
         fetchProducts()
         fetchCategories()
@@ -56,19 +53,8 @@ export default function POSPage() {
 
     const fetchProducts = async () => {
         try {
-            const { data, error } = await supabase
-                .from('products')
-                .select(`*, category:categories(*)`)
-                .eq('is_active', true)
-                .gt('stock', 0)
-                .order('name')
-
-            if (error) {
-                console.warn('Products table may not exist yet:', error.message)
-                setProducts([])
-            } else {
-                setProducts(data || [])
-            }
+            const data = localStorageService.getActiveProductsWithRelations()
+            setProducts(data)
         } catch (err) {
             console.warn('Error fetching products:', err)
             setProducts([])
@@ -78,43 +64,45 @@ export default function POSPage() {
     }
 
     const fetchCategories = async () => {
-        const { data } = await supabase
-            .from('categories')
-            .select('*')
-            .order('name')
-        setCategories(data || [])
+        const data = localStorageService.getCategories()
+        setCategories(data)
     }
 
     const addToCart = (product: Product) => {
-        const existingItem = cart.find(item => item.product.id === product.id)
-
-        if (existingItem) {
-            if (existingItem.quantity < product.stock) {
-                setCart(cart.map(item =>
+        setCart(prev => {
+            const existing = prev.find(item => item.product.id === product.id)
+            if (existing) {
+                if (existing.quantity >= product.stock) {
+                    alert('Stok tidak mencukupi')
+                    return prev
+                }
+                return prev.map(item =>
                     item.product.id === product.id
                         ? { ...item, quantity: item.quantity + 1 }
                         : item
-                ))
+                )
             }
-        } else {
-            setCart([...cart, { product, quantity: 1 }])
-        }
+            return [...prev, { product, quantity: 1 }]
+        })
     }
 
     const updateQuantity = (productId: string, delta: number) => {
-        setCart(cart.map(item => {
-            if (item.product.id === productId) {
+        setCart(prev =>
+            prev.map(item => {
+                if (item.product.id !== productId) return item
                 const newQty = item.quantity + delta
-                if (newQty <= 0) return item
-                if (newQty > item.product.stock) return item
+                if (newQty < 1) return item
+                if (newQty > item.product.stock) {
+                    alert('Stok tidak mencukupi')
+                    return item
+                }
                 return { ...item, quantity: newQty }
-            }
-            return item
-        }))
+            }).filter(item => item.quantity > 0)
+        )
     }
 
     const removeFromCart = (productId: string) => {
-        setCart(cart.filter(item => item.product.id !== productId))
+        setCart(prev => prev.filter(item => item.product.id !== productId))
     }
 
     const clearCart = () => {
@@ -126,7 +114,7 @@ export default function POSPage() {
     }
 
     const calculateTotal = () => {
-        return calculateSubtotal()
+        return calculateSubtotal() // No tax for now
     }
 
     const calculateChange = () => {
@@ -152,35 +140,11 @@ export default function POSPage() {
         setProcessing(true)
 
         try {
-            // Generate invoice number
-            const today = new Date()
-            const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '')
-            const timeStr = Date.now().toString().slice(-4)
-            const invoiceNumber = `INV-${dateStr}-${timeStr}`
+            // Generate invoice number using localStorage service
+            const invoiceNumber = localStorageService.generateInvoiceNumber()
 
-            // Create transaction
-            const { data: transaction, error: txError } = await supabase
-                .from('transactions')
-                .insert({
-                    user_id: user?.id,
-                    invoice_number: invoiceNumber,
-                    subtotal: calculateSubtotal(),
-                    tax: 0,
-                    discount: 0,
-                    total: calculateTotal(),
-                    payment_method: paymentMethod,
-                    payment_status: 'completed',
-                    cash_received: paymentMethod === 'cash' ? parseFloat(cashReceived) || calculateTotal() : null,
-                    change_amount: paymentMethod === 'cash' ? calculateChange() : null,
-                })
-                .select()
-                .single()
-
-            if (txError) throw txError
-
-            // Create transaction items
+            // Create transaction using localStorage
             const items = cart.map(item => ({
-                transaction_id: transaction.id,
                 product_id: item.product.id,
                 product_name: item.product.name,
                 quantity: item.quantity,
@@ -188,11 +152,21 @@ export default function POSPage() {
                 subtotal: item.product.price * item.quantity,
             }))
 
-            const { error: itemsError } = await supabase
-                .from('transaction_items')
-                .insert(items)
-
-            if (itemsError) throw itemsError
+            localStorageService.createTransaction({
+                user_id: user?.id || '',
+                invoice_number: invoiceNumber,
+                subtotal: calculateSubtotal(),
+                tax: 0,
+                discount: 0,
+                total: calculateTotal(),
+                payment_method: paymentMethod,
+                payment_status: 'completed',
+                cash_received: paymentMethod === 'cash' ? parseFloat(cashReceived) || calculateTotal() : null,
+                change_amount: paymentMethod === 'cash' ? calculateChange() : null,
+                bank_account_id: null,
+                qris_reference: null,
+                notes: null,
+            }, items)
 
             // Success
             setLastInvoice(invoiceNumber)

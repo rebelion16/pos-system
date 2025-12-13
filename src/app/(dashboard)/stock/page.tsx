@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { Warehouse, AlertTriangle, TrendingUp, TrendingDown, Plus, Search } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
+import { localStorageService } from '@/lib/localStorage'
 import { ProductWithRelations } from '@/types/database'
 import styles from './stock.module.css'
 
@@ -11,7 +11,6 @@ export default function StockPage() {
     const [loading, setLoading] = useState(true)
     const [searchQuery, setSearchQuery] = useState('')
     const [filter, setFilter] = useState<'all' | 'low'>('all')
-    const supabase = createClient()
 
     useEffect(() => {
         fetchProducts()
@@ -19,13 +18,10 @@ export default function StockPage() {
 
     const fetchProducts = async () => {
         try {
-            const { data } = await supabase
-                .from('products')
-                .select(`*, category:categories(*)`)
-                .eq('is_active', true)
-                .order('stock', { ascending: true })
-
-            setProducts(data || [])
+            const data = localStorageService.getProductsWithRelations()
+                .filter(p => p.is_active)
+                .sort((a, b) => a.stock - b.stock)
+            setProducts(data)
         } catch (error) {
             console.error('Error fetching products:', error)
         } finally {

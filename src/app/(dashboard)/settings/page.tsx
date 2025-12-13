@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState } from 'react'
 import {
     Store,
     Palette,
@@ -11,7 +11,7 @@ import {
     Sun,
     Moon
 } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
+import { localStorageService } from '@/lib/localStorage'
 import { Button } from '@/components/ui'
 import styles from './settings.module.css'
 
@@ -47,9 +47,6 @@ export default function SettingsPage() {
     const [printerEnabled, setPrinterEnabled] = useState(false)
     const [printerName, setPrinterName] = useState('')
 
-    // Memoize supabase client
-    const supabase = useMemo(() => createClient(), [])
-
     useEffect(() => {
         fetchSettings()
     }, [])
@@ -62,20 +59,25 @@ export default function SettingsPage() {
 
     const fetchSettings = async () => {
         try {
-            const { data, error } = await supabase
-                .from('settings')
-                .select('*')
-                .limit(1)
-                .single()
+            const data = localStorageService.getSettings()
 
-            // Silently handle if table doesn't exist (PGRST116) or no data
-            if (error) {
-                if (error.code !== 'PGRST116') {
-                    console.warn('Settings table may not exist yet:', error.message)
-                }
+            if (!data) {
                 setLoading(false)
                 return
             }
+
+            setSettings(data)
+            setStoreName(data.store_name)
+            setStoreAddress(data.store_address || '')
+            setStorePhone(data.store_phone || '')
+            setTaxRate(data.tax_rate)
+            setPrinterEnabled(data.printer_enabled)
+            setPrinterName(data.printer_name || '')
+
+            // Parse theme
+            const themeParts = data.theme?.split('-') || ['light', 'blue']
+            setThemeMode(themeParts[0] as ThemeMode)
+            setThemeColor((themeParts[1] || 'blue') as ThemeColor)
 
             if (data) {
                 setSettings(data)
@@ -110,28 +112,13 @@ export default function SettingsPage() {
                 theme: themeValue,
                 printer_enabled: printerEnabled,
                 printer_name: printerName || null,
-                updated_at: new Date().toISOString()
             }
 
-            if (settings?.id) {
-                // Update existing
-                const { error } = await supabase
-                    .from('settings')
-                    .update(settingsData)
-                    .eq('id', settings.id)
-
-                if (error) throw error
-            } else {
-                // Insert new
-                const { error } = await supabase
-                    .from('settings')
-                    .insert([{ ...settingsData, currency: 'IDR' }])
-
-                if (error) throw error
-            }
+            localStorageService.updateSettings(settingsData)
 
             setShowSaved(true)
             setTimeout(() => setShowSaved(false), 3000)
+            fetchSettings() // Refresh
         } catch (error) {
             console.error('Error saving settings:', error)
         } finally {
