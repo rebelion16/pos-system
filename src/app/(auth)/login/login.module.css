@@ -113,6 +113,63 @@
     text-decoration: underline;
 }
 
+/* Google Button */
+.googleButton {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 0.875rem 1.5rem;
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.googleButton:hover {
+    background: var(--gray-50);
+    border-color: var(--gray-300);
+}
+
+.googleButton:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Divider */
+.divider {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin: 1.5rem 0;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+
+.divider::before,
+.divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+}
+
+/* Success Message */
+.success {
+    padding: 0.875rem 1rem;
+    background: var(--success-50);
+    border: 1px solid var(--success-200);
+    border-radius: var(--radius);
+    color: var(--success-700);
+    font-size: 0.875rem;
+    text-align: center;
+}
+
 /* Background Decorations */
 .bgDecoration {
     position: absolute;

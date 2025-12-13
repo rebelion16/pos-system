@@ -38,7 +38,7 @@ export default function RegisterPage() {
         }
 
         try {
-            const { error: signUpError } = await signUp(email, password, name)
+            const { error: signUpError, needsVerification } = await signUp(email, password, name)
 
             if (signUpError) {
                 if (signUpError.message.includes('already registered')) {
@@ -49,10 +49,13 @@ export default function RegisterPage() {
                 return
             }
 
-            setSuccess(true)
-            setTimeout(() => {
-                router.push('/login')
-            }, 3000)
+            if (needsVerification) {
+                setSuccess(true)
+                // Don't redirect - show verification message
+            } else {
+                // If no verification needed, redirect to dashboard
+                router.push('/dashboard')
+            }
         } catch {
             setError('Terjadi kesalahan. Silakan coba lagi.')
         } finally {
