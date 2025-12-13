@@ -9,13 +9,8 @@ interface SyncResult {
     rowsAdded?: number
 }
 
-// Google Apps Script Web App URL (user must deploy their own)
-// Instructions: https://developers.google.com/apps-script/guides/web
-let WEBAPP_URL = ''
-
-// Set Web App URL (call this after user provides their deployed URL)
+// Set Web App URL
 export const setWebAppUrl = (url: string) => {
-    WEBAPP_URL = url
     if (typeof window !== 'undefined') {
         localStorage.setItem('pos_webapp_url', url)
     }
@@ -57,7 +52,7 @@ export const syncTransactionsToSheets = async (): Promise<SyncResult> => {
     if (!webAppUrl) {
         return {
             success: false,
-            message: 'Web App URL belum diatur. Buka Pengaturan untuk mengatur URL Google Apps Script.'
+            message: 'Web App URL belum diatur. Buka Pengaturan untuk mengatur URL.'
         }
     }
 
@@ -104,35 +99,44 @@ export const syncTransactionsToSheets = async (): Promise<SyncResult> => {
             }
         })
 
-        // Send to Google Apps Script
+        // Prepare payload
+        const payload = {
+            action: 'sync',
+            headers: [
+                'No. Invoice',
+                'Tanggal',
+                'Produk',
+                'Qty',
+                'Harga',
+                'Subtotal',
+                'Metode Bayar',
+                'Total',
+                'Status'
+            ],
+            data: rows
+        }
+
+        // Send as form data (works better with Apps Script)
+        const formData = new FormData()
+        formData.append('payload', JSON.stringify(payload))
+
         const response = await fetch(webAppUrl, {
             method: 'POST',
-            mode: 'no-cors', // Required for cross-origin Apps Script
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                action: 'sync',
-                data: rows,
-                headers: [
-                    'No. Invoice',
-                    'Tanggal',
-                    'Produk',
-                    'Qty',
-                    'Harga',
-                    'Subtotal',
-                    'Metode Bayar',
-                    'Total',
-                    'Status'
-                ]
-            })
+            body: formData
         })
 
-        // With no-cors, we can't read the response, but if no error thrown, assume success
-        return {
-            success: true,
-            message: `${transactions.length} transaksi berhasil dikirim ke Google Sheets!`,
-            rowsAdded: rows.length
+        // Check response
+        if (response.ok || response.type === 'opaque') {
+            return {
+                success: true,
+                message: `${transactions.length} transaksi berhasil dikirim ke Google Sheets!`,
+                rowsAdded: rows.length
+            }
+        } else {
+            return {
+                success: false,
+                message: 'Gagal mengirim data. Periksa URL Web App.'
+            }
         }
 
     } catch (error) {
@@ -144,64 +148,8 @@ export const syncTransactionsToSheets = async (): Promise<SyncResult> => {
     }
 }
 
-// Generate Apps Script code for user to deploy
-export const getAppsScriptCode = (spreadsheetId: string): string => {
-    return `// POS System - Google Apps Script
-// Deploy ini sebagai Web App
-
-const SPREADSHEET_ID = '${spreadsheetId}';
-
-function doPost(e) {
-  try {
-    const data = JSON.parse(e.postData.contents);
-    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    let sheet = ss.getSheetByName('Transaksi');
-    
-    // Create sheet if not exists
-    if (!sheet) {
-      sheet = ss.insertSheet('Transaksi');
-    }
-    
-    // Clear and add headers if first row
-    if (sheet.getLastRow() === 0 && data.headers) {
-      sheet.appendRow(data.headers);
-    }
-    
-    // Append data rows
-    if (data.data && data.data.length > 0) {
-      // Clear existing data (keep headers)
-      if (sheet.getLastRow() > 1) {
-        sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).clear();
-      }
-      
-      // Add new data
-      data.data.forEach(row => {
-        sheet.appendRow(row);
-      });
-    }
-    
-    return ContentService.createTextOutput(JSON.stringify({
-      success: true,
-      message: 'Data synced successfully'
-    })).setMimeType(ContentService.MimeType.JSON);
-    
-  } catch (error) {
-    return ContentService.createTextOutput(JSON.stringify({
-      success: false,
-      message: error.toString()
-    })).setMimeType(ContentService.MimeType.JSON);
-  }
-}
-
-function doGet() {
-  return ContentService.createTextOutput('POS Sync API is running');
-}
-`;
-}
-
 export default {
     syncTransactionsToSheets,
     setWebAppUrl,
-    getWebAppUrl,
-    getAppsScriptCode
+    getWebAppUrl
 }
