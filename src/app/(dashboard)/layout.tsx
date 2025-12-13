@@ -24,16 +24,16 @@ import { AuthProvider } from '@/hooks/useAuth'
 import styles from './layout.module.css'
 
 const navigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Kasir (POS)', href: '/pos', icon: ShoppingCart },
-    { name: 'Produk', href: '/products', icon: Package },
-    { name: 'Kategori', href: '/categories', icon: FolderOpen },
-    { name: 'Stok', href: '/stock', icon: Warehouse },
-    { name: 'Supplier', href: '/suppliers', icon: Truck },
-    { name: 'Transaksi', href: '/transactions', icon: FileText },
-    { name: 'Laporan', href: '/reports', icon: FileText },
-    { name: 'Pengguna', href: '/users', icon: Users },
-    { name: 'Pengaturan', href: '/settings', icon: Settings },
+    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: ['owner', 'admin'] },
+    { name: 'Kasir (POS)', href: '/pos', icon: ShoppingCart, roles: ['owner', 'admin', 'cashier'] },
+    { name: 'Produk', href: '/products', icon: Package, roles: ['owner', 'admin'] },
+    { name: 'Kategori', href: '/categories', icon: FolderOpen, roles: ['owner', 'admin'] },
+    { name: 'Stok', href: '/stock', icon: Warehouse, roles: ['owner', 'admin'] },
+    { name: 'Supplier', href: '/suppliers', icon: Truck, roles: ['owner', 'admin'] },
+    { name: 'Transaksi', href: '/transactions', icon: FileText, roles: ['owner', 'admin'] },
+    { name: 'Laporan', href: '/reports', icon: FileText, roles: ['owner', 'admin'] },
+    { name: 'Pengguna', href: '/users', icon: Users, roles: ['owner', 'admin'] },
+    { name: 'Pengaturan', href: '/settings', icon: Settings, roles: ['owner', 'admin'] },
 ]
 
 function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
@@ -72,6 +72,23 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
             router.push('/login')
         }
     }, [loading, user, router])
+
+    // Redirect cashier to POS if trying to access restricted pages
+    useEffect(() => {
+        if (!loading && user && user.role === 'cashier') {
+            const allowedPaths = navigation
+                .filter(item => item.roles.includes('cashier'))
+                .map(item => item.href)
+
+            const isAllowed = allowedPaths.some(path =>
+                pathname === path || pathname.startsWith(path + '/')
+            )
+
+            if (!isAllowed) {
+                router.push('/pos')
+            }
+        }
+    }, [loading, user, pathname, router])
 
     if (loading) {
         return (
@@ -134,31 +151,24 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
                 </div>
 
                 <nav className={styles.nav}>
-                    {navigation.map((item) => {
-                        const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
-                        const Icon = item.icon
+                    {navigation
+                        .filter(item => item.roles.includes(user?.role || ''))
+                        .map((item) => {
+                            const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
+                            const Icon = item.icon
 
-                        // Check access based on role
-                        const restrictedForCashier = ['users', 'categories', 'suppliers', 'stock'].some(
-                            path => item.href.includes(path)
-                        )
-                        const restrictedForAdmin = ['users'].some(path => item.href.includes(path))
-
-                        if (user?.role === 'cashier' && restrictedForCashier) return null
-                        if (user?.role === 'admin' && restrictedForAdmin) return null
-
-                        return (
-                            <Link
-                                key={item.name}
-                                href={item.href}
-                                className={`${styles.navItem} ${isActive ? styles.navItemActive : ''}`}
-                                onClick={() => setSidebarOpen(false)}
-                            >
-                                <Icon size={20} />
-                                <span>{item.name}</span>
-                            </Link>
-                        )
-                    })}
+                            return (
+                                <Link
+                                    key={item.name}
+                                    href={item.href}
+                                    className={`${styles.navItem} ${isActive ? styles.navItemActive : ''}`}
+                                    onClick={() => setSidebarOpen(false)}
+                                >
+                                    <Icon size={20} />
+                                    <span>{item.name}</span>
+                                </Link>
+                            )
+                        })}
                 </nav>
 
                 <div className={styles.sidebarFooter}>
