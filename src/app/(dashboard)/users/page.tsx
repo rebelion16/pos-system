@@ -11,7 +11,7 @@ import {
     User as UserIcon,
     X
 } from 'lucide-react'
-import { localStorageService } from '@/lib/localStorage'
+import { firestoreService } from '@/lib/firebase/firestore'
 import { Button } from '@/components/ui'
 import { User, UserRole } from '@/types/database'
 import styles from './users.module.css'
@@ -41,7 +41,7 @@ export default function UsersPage() {
 
     const fetchUsers = async () => {
         try {
-            const data = localStorageService.getUsers()
+            const data = await firestoreService.getUsers()
             setUsers(data)
         } catch (error) {
             console.error('Error fetching users:', error)
@@ -80,21 +80,12 @@ export default function UsersPage() {
         setSaving(true)
         try {
             if (editingUser?.id) {
-                // Update existing user in localStorage
-                const allUsers = localStorageService.getUsers()
-                const index = allUsers.findIndex(u => u.id === editingUser.id)
-                if (index !== -1) {
-                    allUsers[index] = {
-                        ...allUsers[index],
-                        name: name.trim(),
-                        role,
-                        updated_at: new Date().toISOString()
-                    }
-                    localStorage.setItem('pos_users', JSON.stringify(allUsers))
-                }
+                await firestoreService.updateUser(editingUser.id, {
+                    name: name.trim(),
+                    role,
+                })
             } else {
-                // Create new user
-                localStorageService.createUser({
+                await firestoreService.createUser({
                     email: email.trim(),
                     name: name.trim(),
                     role,
@@ -115,10 +106,8 @@ export default function UsersPage() {
         if (!confirm('Apakah Anda yakin ingin menghapus pengguna ini?')) return
 
         try {
-            const allUsers = localStorageService.getUsers()
-            const filtered = allUsers.filter(u => u.id !== id)
-            localStorage.setItem('pos_users', JSON.stringify(filtered))
-            setUsers(filtered)
+            await firestoreService.deleteUser(id)
+            setUsers(users.filter(u => u.id !== id))
         } catch (error) {
             console.error('Error deleting user:', error)
         }

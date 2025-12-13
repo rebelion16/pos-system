@@ -12,7 +12,7 @@ import {
     MapPin,
     X
 } from 'lucide-react'
-import { localStorageService } from '@/lib/localStorage'
+import { firestoreService } from '@/lib/firebase/firestore'
 import { Button } from '@/components/ui'
 import { Supplier } from '@/types/database'
 import styles from './suppliers.module.css'
@@ -37,7 +37,7 @@ export default function SuppliersPage() {
 
     const fetchSuppliers = async () => {
         try {
-            const data = localStorageService.getSuppliers()
+            const data = await firestoreService.getSuppliers()
             // Sort by name
             data.sort((a, b) => a.name.localeCompare(b.name))
             setSuppliers(data)
@@ -94,11 +94,9 @@ export default function SuppliersPage() {
             }
 
             if (editingSupplier) {
-                // Update existing
-                localStorageService.updateSupplier(editingSupplier.id, supplierData)
+                await firestoreService.updateSupplier(editingSupplier.id, supplierData)
             } else {
-                // Insert new
-                localStorageService.createSupplier(supplierData)
+                await firestoreService.createSupplier(supplierData)
             }
 
             await fetchSuppliers()
@@ -114,7 +112,7 @@ export default function SuppliersPage() {
         if (!confirm('Apakah Anda yakin ingin menghapus supplier ini?')) return
 
         try {
-            localStorageService.deleteSupplier(id)
+            await firestoreService.deleteSupplier(id)
             setSuppliers(suppliers.filter(s => s.id !== id))
         } catch (error) {
             console.error('Error deleting supplier:', error)

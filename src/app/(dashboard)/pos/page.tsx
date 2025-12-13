@@ -14,7 +14,7 @@ import {
     Check,
     Package
 } from 'lucide-react'
-import { localStorageService } from '@/lib/localStorage'
+import { firestoreService } from '@/lib/firebase/firestore'
 import { Product, Category, ProductWithRelations, PaymentMethod } from '@/types/database'
 import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui'
@@ -53,7 +53,7 @@ export default function POSPage() {
 
     const fetchProducts = async () => {
         try {
-            const data = localStorageService.getActiveProductsWithRelations()
+            const data = await firestoreService.getActiveProductsWithRelations()
             setProducts(data)
         } catch (err) {
             console.warn('Error fetching products:', err)
@@ -64,7 +64,7 @@ export default function POSPage() {
     }
 
     const fetchCategories = async () => {
-        const data = localStorageService.getCategories()
+        const data = await firestoreService.getCategories()
         setCategories(data)
     }
 
@@ -140,10 +140,10 @@ export default function POSPage() {
         setProcessing(true)
 
         try {
-            // Generate invoice number using localStorage service
-            const invoiceNumber = localStorageService.generateInvoiceNumber()
+            // Generate invoice number
+            const invoiceNumber = firestoreService.generateInvoiceNumber()
 
-            // Create transaction using localStorage
+            // Create transaction items
             const items = cart.map(item => ({
                 product_id: item.product.id,
                 product_name: item.product.name,
@@ -152,7 +152,8 @@ export default function POSPage() {
                 subtotal: item.product.price * item.quantity,
             }))
 
-            localStorageService.createTransaction({
+            // Create transaction using Firestore
+            await firestoreService.createTransaction({
                 user_id: user?.id || '',
                 invoice_number: invoiceNumber,
                 subtotal: calculateSubtotal(),

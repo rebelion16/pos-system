@@ -8,9 +8,8 @@ import {
     Trash2,
     Package,
     X,
-    Upload
 } from 'lucide-react'
-import { localStorageService } from '@/lib/localStorage'
+import { firestoreService } from '@/lib/firebase/firestore'
 import { Product, Category, ProductWithRelations } from '@/types/database'
 import { Button, Input } from '@/components/ui'
 import styles from './products.module.css'
@@ -45,7 +44,7 @@ export default function ProductsPage() {
 
     const fetchProducts = async () => {
         try {
-            const data = localStorageService.getProductsWithRelations()
+            const data = await firestoreService.getProductsWithRelations()
             setProducts(data)
         } catch (err) {
             console.warn('Error fetching products:', err)
@@ -56,7 +55,7 @@ export default function ProductsPage() {
     }
 
     const fetchCategories = async () => {
-        const data = localStorageService.getCategories()
+        const data = await firestoreService.getCategories()
         setCategories(data)
     }
 
@@ -82,9 +81,9 @@ export default function ProductsPage() {
             }
 
             if (editingProduct) {
-                localStorageService.updateProduct(editingProduct.id, productData)
+                await firestoreService.updateProduct(editingProduct.id, productData)
             } else {
-                localStorageService.createProduct(productData)
+                await firestoreService.createProduct(productData)
             }
 
             setShowModal(false)
@@ -119,7 +118,7 @@ export default function ProductsPage() {
         if (!confirm(`Hapus produk "${product.name}"?`)) return
 
         try {
-            localStorageService.deleteProduct(product.id)
+            await firestoreService.deleteProduct(product.id)
             fetchProducts()
         } catch (error) {
             console.error('Error deleting product:', error)

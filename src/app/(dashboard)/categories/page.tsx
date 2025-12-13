@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { Plus, Edit, Trash2, FolderOpen, X } from 'lucide-react'
-import { localStorageService } from '@/lib/localStorage'
+import { firestoreService } from '@/lib/firebase/firestore'
 import { Category } from '@/types/database'
 import { Button, Input } from '@/components/ui'
 import styles from './categories.module.css'
@@ -36,7 +36,7 @@ export default function CategoriesPage() {
 
     const fetchCategories = async () => {
         try {
-            const data = localStorageService.getCategories()
+            const data = await firestoreService.getCategories()
             setCategories(data)
         } catch (error) {
             console.error('Error fetching categories:', error)
@@ -51,13 +51,13 @@ export default function CategoriesPage() {
 
         try {
             if (editingCategory) {
-                localStorageService.updateCategory(editingCategory.id, {
+                await firestoreService.updateCategory(editingCategory.id, {
                     name: formData.name,
                     description: formData.description || null,
                     color: formData.color,
                 })
             } else {
-                localStorageService.createCategory({
+                await firestoreService.createCategory({
                     name: formData.name,
                     description: formData.description || null,
                     color: formData.color,
@@ -88,7 +88,7 @@ export default function CategoriesPage() {
         if (!confirm(`Hapus kategori "${category.name}"?`)) return
 
         try {
-            localStorageService.deleteCategory(category.id)
+            await firestoreService.deleteCategory(category.id)
             fetchCategories()
         } catch (error) {
             console.error('Error deleting category:', error)

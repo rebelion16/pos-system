@@ -14,7 +14,7 @@ import {
     Trash2,
     AlertTriangle
 } from 'lucide-react'
-import { localStorageService } from '@/lib/localStorage'
+import { firestoreService } from '@/lib/firebase/firestore'
 import { setWebAppUrl, getWebAppUrl } from '@/lib/googleSheets'
 import { Button } from '@/components/ui'
 import styles from './settings.module.css'
@@ -66,7 +66,7 @@ export default function SettingsPage() {
 
     const fetchSettings = async () => {
         try {
-            const data = localStorageService.getSettings()
+            const data = await firestoreService.getSettings()
 
             if (!data) {
                 setLoading(false)
@@ -85,21 +85,6 @@ export default function SettingsPage() {
             const themeParts = data.theme?.split('-') || ['light', 'blue']
             setThemeMode(themeParts[0] as ThemeMode)
             setThemeColor((themeParts[1] || 'blue') as ThemeColor)
-
-            if (data) {
-                setSettings(data)
-                setStoreName(data.store_name || '')
-                setStoreAddress(data.store_address || '')
-                setStorePhone(data.store_phone || '')
-                setTaxRate(data.tax_rate || 0)
-                setPrinterEnabled(data.printer_enabled || false)
-                setPrinterName(data.printer_name || '')
-
-                // Parse theme
-                const [mode, color] = (data.theme || 'light-blue').split('-')
-                setThemeMode(mode as ThemeMode || 'light')
-                setThemeColor(color as ThemeColor || 'blue')
-            }
         } catch (error) {
             console.error('Error:', error)
         } finally {
@@ -121,7 +106,7 @@ export default function SettingsPage() {
                 printer_name: printerName || null,
             }
 
-            localStorageService.updateSettings(settingsData)
+            await firestoreService.updateSettings(settingsData)
 
             setShowSaved(true)
             setTimeout(() => setShowSaved(false), 3000)
@@ -416,16 +401,16 @@ export default function SettingsPage() {
                             variant="secondary"
                             style={{ background: 'var(--danger-600)', color: 'white', border: 'none' }}
                             onClick={() => {
-                                if (confirm('Apakah Anda yakin ingin menghapus SEMUA data? Tindakan ini tidak dapat dibatalkan!')) {
-                                    if (confirm('Konfirmasi sekali lagi: Hapus semua data?')) {
-                                        localStorageService.resetData()
+                                if (confirm('Apakah Anda yakin ingin menghapus data lokal? Data di cloud tidak akan terpengaruh.')) {
+                                    if (confirm('Konfirmasi sekali lagi: Hapus data lokal?')) {
+                                        localStorage.clear()
                                         window.location.href = '/login'
                                     }
                                 }
                             }}
                         >
                             <Trash2 size={16} />
-                            Reset Database
+                            Reset Data Lokal
                         </Button>
                     </div>
                 </div>

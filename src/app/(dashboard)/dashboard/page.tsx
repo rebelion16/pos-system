@@ -10,7 +10,7 @@ import {
     ArrowRight
 } from 'lucide-react'
 import Link from 'next/link'
-import { localStorageService } from '@/lib/localStorage'
+import { firestoreService } from '@/lib/firebase/firestore'
 import { useAuth } from '@/hooks/useAuth'
 import styles from './dashboard.module.css'
 
@@ -50,10 +50,10 @@ export default function DashboardPage() {
 
     const fetchDashboardData = async () => {
         try {
-            // Get data from localStorage
-            const products = localStorageService.getProducts()
-            const transactions = localStorageService.getTransactions()
-            const todayTransactions = localStorageService.getTodayTransactions()
+            // Get data from Firestore
+            const products = await firestoreService.getProducts()
+            const transactions = await firestoreService.getTransactions()
+            const todayTransactions = await firestoreService.getTodayTransactions()
 
             const today = new Date()
             const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
