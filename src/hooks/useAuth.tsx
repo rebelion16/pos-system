@@ -66,7 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     }
 
-    const signUp = async (email: string, password: string, name: string, role: string = 'cashier') => {
+    const signUp = async (email: string, password: string, name: string, role: string = 'owner') => {
         try {
             const existingUser = localStorageService.getUserByEmail(email)
             if (existingUser) {

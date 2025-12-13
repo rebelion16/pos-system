@@ -10,7 +10,9 @@ import {
     Check,
     Sun,
     Moon,
-    Cloud
+    Cloud,
+    Trash2,
+    AlertTriangle
 } from 'lucide-react'
 import { localStorageService } from '@/lib/localStorage'
 import { setWebAppUrl, getWebAppUrl } from '@/lib/googleSheets'
@@ -386,6 +388,47 @@ export default function SettingsPage() {
                         </>
                     )}
                 </Button>
+            </div>
+
+            {/* Reset Data Section */}
+            <div className={styles.section} style={{ borderColor: 'var(--danger-200)' }}>
+                <div className={styles.sectionHeader}>
+                    <div className={styles.sectionIcon} style={{ background: 'var(--danger-100)', color: 'var(--danger-600)' }}>
+                        <Trash2 size={20} />
+                    </div>
+                    <div>
+                        <h3 className={styles.sectionTitle}>Reset Data</h3>
+                        <p className={styles.sectionDesc}>
+                            Hapus semua data dan kembali ke pengaturan awal
+                        </p>
+                    </div>
+                </div>
+                <div className={styles.sectionBody}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', background: 'var(--danger-50)', borderRadius: 'var(--radius)', border: '1px solid var(--danger-200)' }}>
+                        <AlertTriangle size={24} style={{ color: 'var(--danger-600)', flexShrink: 0 }} />
+                        <div style={{ flex: 1 }}>
+                            <p style={{ fontWeight: 500, color: 'var(--danger-700)', marginBottom: '0.25rem' }}>Peringatan!</p>
+                            <p style={{ fontSize: '0.875rem', color: 'var(--danger-600)' }}>
+                                Tindakan ini akan menghapus SEMUA data termasuk produk, transaksi, dan pengguna. Data tidak dapat dikembalikan.
+                            </p>
+                        </div>
+                        <Button
+                            variant="secondary"
+                            style={{ background: 'var(--danger-600)', color: 'white', border: 'none' }}
+                            onClick={() => {
+                                if (confirm('Apakah Anda yakin ingin menghapus SEMUA data? Tindakan ini tidak dapat dibatalkan!')) {
+                                    if (confirm('Konfirmasi sekali lagi: Hapus semua data?')) {
+                                        localStorageService.resetData()
+                                        window.location.href = '/login'
+                                    }
+                                }
+                            }}
+                        >
+                            <Trash2 size={16} />
+                            Reset Database
+                        </Button>
+                    </div>
+                </div>
             </div>
 
             {/* Saved Toast */}
