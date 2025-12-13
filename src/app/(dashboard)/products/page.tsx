@@ -273,7 +273,10 @@ export default function ProductsPage() {
                                 {product.category && (
                                     <span
                                         className={styles.productCategory}
-                                        style={{ backgroundColor: product.category.color + '20', color: product.category.color }}
+                                        style={product.category.color ? {
+                                            backgroundColor: product.category.color + '20',
+                                            color: product.category.color
+                                        } : undefined}
                                     >
                                         {product.category.name}
                                     </span>

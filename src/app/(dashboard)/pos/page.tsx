@@ -263,11 +263,11 @@ export default function POSPage() {
                             key={cat.id}
                             className={`${styles.categoryTab} ${selectedCategory === cat.id ? styles.categoryTabActive : ''}`}
                             onClick={() => setSelectedCategory(cat.id)}
-                            style={selectedCategory === cat.id ? {
+                            style={selectedCategory === cat.id && cat.color ? {
                                 backgroundColor: cat.color + '20',
                                 color: cat.color,
                                 borderColor: cat.color
-                            } : {}}
+                            } : undefined}
                         >
                             {cat.name}
                         </button>

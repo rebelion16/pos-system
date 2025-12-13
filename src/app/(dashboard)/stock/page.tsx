@@ -118,7 +118,10 @@ export default function StockPage() {
                                     {product.category && (
                                         <span
                                             className={styles.categoryBadge}
-                                            style={{ backgroundColor: product.category.color + '20', color: product.category.color }}
+                                            style={product.category.color ? {
+                                                backgroundColor: product.category.color + '20',
+                                                color: product.category.color
+                                            } : undefined}
                                         >
                                             {product.category.name}
                                         </span>
