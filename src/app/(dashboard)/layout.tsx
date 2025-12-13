@@ -66,11 +66,28 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
         router.push('/login')
     }
 
+    // Redirect to login if not authenticated
+    useEffect(() => {
+        if (!loading && !user) {
+            router.push('/login')
+        }
+    }, [loading, user, router])
+
     if (loading) {
         return (
             <div className={styles.loadingContainer}>
                 <div className="spinner spinner-lg"></div>
                 <p>Memuat...</p>
+            </div>
+        )
+    }
+
+    // Don't render dashboard if no user
+    if (!user) {
+        return (
+            <div className={styles.loadingContainer}>
+                <div className="spinner spinner-lg"></div>
+                <p>Mengarahkan ke login...</p>
             </div>
         )
     }
