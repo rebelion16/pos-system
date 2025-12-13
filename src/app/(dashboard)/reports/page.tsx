@@ -8,9 +8,12 @@ import {
     Calendar,
     Download,
     FileSpreadsheet,
-    Check
+    Check,
+    Cloud,
+    CloudOff
 } from 'lucide-react'
 import { localStorageService } from '@/lib/localStorage'
+import { syncTransactionsToSheets, getWebAppUrl } from '@/lib/googleSheets'
 import { Button } from '@/components/ui'
 import styles from './reports.module.css'
 
@@ -39,7 +42,16 @@ export default function ReportsPage() {
     const [loading, setLoading] = useState(true)
     const [exporting, setExporting] = useState(false)
     const [exportSuccess, setExportSuccess] = useState(false)
+    const [syncing, setSyncing] = useState(false)
+    const [syncStatus, setSyncStatus] = useState<'idle' | 'success' | 'error'>('idle')
+    const [syncMessage, setSyncMessage] = useState('')
+    const [hasWebAppUrl, setHasWebAppUrl] = useState(false)
     const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today')
+
+    useEffect(() => {
+        fetchReportData()
+        setHasWebAppUrl(!!getWebAppUrl())
+    }, [period])
 
     useEffect(() => {
         fetchReportData()
@@ -232,6 +244,45 @@ export default function ReportsPage() {
                     <p className={styles.subtitle}>Analisis penjualan toko Anda</p>
                 </div>
                 <div className={styles.headerActions}>
+                    {hasWebAppUrl && (
+                        <Button
+                            variant={syncStatus === 'success' ? "primary" : "secondary"}
+                            onClick={async () => {
+                                setSyncing(true)
+                                setSyncStatus('idle')
+                                const result = await syncTransactionsToSheets()
+                                setSyncing(false)
+                                setSyncStatus(result.success ? 'success' : 'error')
+                                setSyncMessage(result.message)
+                                if (result.success) {
+                                    setTimeout(() => setSyncStatus('idle'), 3000)
+                                }
+                            }}
+                            disabled={syncing || transactions.length === 0}
+                        >
+                            {syncing ? (
+                                <>
+                                    <div className="spinner" style={{ width: '16px', height: '16px' }} />
+                                    Sync...
+                                </>
+                            ) : syncStatus === 'success' ? (
+                                <>
+                                    <Check size={18} />
+                                    Synced!
+                                </>
+                            ) : syncStatus === 'error' ? (
+                                <>
+                                    <CloudOff size={18} />
+                                    Gagal
+                                </>
+                            ) : (
+                                <>
+                                    <Cloud size={18} />
+                                    Sync ke Sheets
+                                </>
+                            )}
+                        </Button>
+                    )}
                     <Button
                         variant={exportSuccess ? "primary" : "secondary"}
                         onClick={exportToCSV}

@@ -9,9 +9,11 @@ import {
     Save,
     Check,
     Sun,
-    Moon
+    Moon,
+    Cloud
 } from 'lucide-react'
 import { localStorageService } from '@/lib/localStorage'
+import { setWebAppUrl, getWebAppUrl } from '@/lib/googleSheets'
 import { Button } from '@/components/ui'
 import styles from './settings.module.css'
 
@@ -46,9 +48,12 @@ export default function SettingsPage() {
     const [themeColor, setThemeColor] = useState<ThemeColor>('blue')
     const [printerEnabled, setPrinterEnabled] = useState(false)
     const [printerName, setPrinterName] = useState('')
+    const [webAppUrlInput, setWebAppUrlInput] = useState('')
 
     useEffect(() => {
         fetchSettings()
+        // Load saved Web App URL
+        setWebAppUrlInput(getWebAppUrl())
     }, [])
 
     useEffect(() => {
@@ -329,6 +334,40 @@ export default function SettingsPage() {
                             />
                         </div>
                     )}
+                </div>
+            </div>
+
+            {/* Google Sheets Integration */}
+            <div className={styles.section}>
+                <div className={styles.sectionHeader}>
+                    <div className={styles.sectionIcon}>
+                        <Cloud size={20} />
+                    </div>
+                    <div>
+                        <h3 className={styles.sectionTitle}>Google Sheets Sync</h3>
+                        <p className={styles.sectionDesc}>
+                            Hubungkan data transaksi ke Google Sheets
+                        </p>
+                    </div>
+                </div>
+                <div className={styles.sectionBody}>
+                    <div className={styles.formGroup}>
+                        <label className={styles.label}>Web App URL</label>
+                        <input
+                            type="text"
+                            className={styles.input}
+                            value={webAppUrlInput}
+                            onChange={(e) => {
+                                setWebAppUrlInput(e.target.value)
+                                setWebAppUrl(e.target.value)
+                            }}
+                            placeholder="https://script.google.com/macros/s/xxxx/exec"
+                        />
+                        <p style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: '0.5rem' }}>
+                            Deploy Google Apps Script sebagai Web App dan paste URL-nya di sini.
+                            Setelah diatur, tombol &quot;Sync ke Sheets&quot; akan muncul di halaman Laporan.
+                        </p>
+                    </div>
                 </div>
             </div>
 
