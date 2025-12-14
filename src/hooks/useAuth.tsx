@@ -20,6 +20,8 @@ interface User {
     email: string
     name: string
     role: 'owner' | 'admin' | 'cashier'
+    storeId: string  // Store ID for multi-tenancy
+    storeCode: string | null  // Store code (for owners)
     avatar_url: string | null
     email_verified: boolean
     loginType: 'firebase' | 'cashier'
@@ -29,10 +31,11 @@ interface User {
 interface AuthContextType {
     user: User | null
     firebaseUser: FirebaseUser | null
+    storeId: string | null  // Current store ID for data filtering
     loading: boolean
     isConfigured: boolean
     signIn: (email: string, password: string) => Promise<{ error: Error | null }>
-    signUp: (email: string, password: string, name: string) => Promise<{ error: Error | null; needsVerification?: boolean }>
+    signUp: (email: string, password: string, name: string, storeCode?: string) => Promise<{ error: Error | null; needsVerification?: boolean }>
     signInWithGoogle: () => Promise<{ error: Error | null }>
     signInAsCashier: (username: string, password: string, storeCode: string) => Promise<{ error: Error | null }>
     signOut: () => Promise<void>
@@ -70,6 +73,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     email: '',
                     name: cashierData.name,
                     role: 'cashier',
+                    storeId: cashierData.storeId || '',
+                    storeCode: null,
                     avatar_url: null,
                     email_verified: true,
                     loginType: 'cashier',
@@ -91,7 +96,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const unsubscribe = onAuthStateChanged(auth, async (authUser) => {
             if (authUser) {
                 setFirebaseUser(authUser)
-                setUser(createUserFromAuth(authUser))
+                const userData = await createUserFromAuth(authUser)
+                setUser(userData)
             } else {
                 setFirebaseUser(null)
                 // Don't set user to null if there's a cashier session
@@ -107,12 +113,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, [mounted])
 
     // Create user object from Firebase auth user
-    const createUserFromAuth = (authUser: FirebaseUser): User => {
+    const createUserFromAuth = async (authUser: FirebaseUser): Promise<User> => {
+        // Fetch user data from Firestore to get store_id
+        const firestoreUser = await firestoreService.getUserById(authUser.uid)
+
         return {
             id: authUser.uid,
             email: authUser.email || '',
             name: authUser.displayName || authUser.email?.split('@')[0] || 'User',
-            role: 'owner', // Default role for new users
+            role: (firestoreUser?.role as 'owner' | 'admin' | 'cashier') || 'owner',
+            storeId: firestoreUser?.store_id || authUser.uid, // Default to own ID for new owners
+            storeCode: firestoreUser?.store_code || null,
             avatar_url: authUser.photoURL || null,
             email_verified: authUser.emailVerified,
             loginType: 'firebase'
@@ -123,7 +134,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!auth) return
         if (auth.currentUser) {
             await auth.currentUser.reload()
-            setUser(createUserFromAuth(auth.currentUser))
+            const userData = await createUserFromAuth(auth.currentUser)
+            setUser(userData)
         }
     }
 
@@ -149,15 +161,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     }
 
-    const signUp = async (email: string, password: string, name: string) => {
+    const signUp = async (email: string, password: string, name: string, storeCode?: string) => {
         if (!auth) {
             return { error: new Error('Firebase tidak dikonfigurasi') }
         }
         try {
+            // If joining as staff, validate store code first
+            let storeOwner = null
+            if (storeCode) {
+                storeOwner = await firestoreService.getUserByStoreCode(storeCode)
+                if (!storeOwner) {
+                    return { error: new Error('Kode toko tidak ditemukan') }
+                }
+            }
+
             const { user: newUser } = await createUserWithEmailAndPassword(auth, email, password)
 
             // Update display name
             await updateProfile(newUser, { displayName: name })
+
+            // Generate store code for owner
+            const generateStoreCode = () => {
+                const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+                let code = ''
+                for (let i = 0; i < 6; i++) {
+                    code += chars.charAt(Math.floor(Math.random() * chars.length))
+                }
+                return code
+            }
+
+            // Create user document in Firestore
+            const isOwner = !storeCode
+            const userStoreId = isOwner ? newUser.uid : storeOwner!.id
+            const userStoreCode = isOwner ? generateStoreCode() : null
+            const userRole = isOwner ? 'owner' : 'admin' // Staff registering get admin role, cashiers use different login
+
+            await firestoreService.createUserWithId(newUser.uid, {
+                email: newUser.email || email,
+                name: name,
+                role: userRole as 'owner' | 'admin' | 'cashier',
+                store_id: userStoreId,
+                store_code: userStoreCode,
+                avatar_url: newUser.photoURL || null
+            })
 
             // Send email verification
             await sendEmailVerification(newUser)
@@ -218,11 +264,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }))
 
             // Set user state
+            // Find the store owner by store code to get store_id
+            const storeOwner = await firestoreService.getUserByStoreCode(cashier.store_code)
+            const storeId = storeOwner?.id || ''
+
             setUser({
                 id: cashier.id,
                 email: '',
                 name: cashier.name,
                 role: 'cashier',
+                storeId: storeId,
+                storeCode: null,
                 avatar_url: null,
                 email_verified: true,
                 loginType: 'cashier',
@@ -252,6 +304,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             <AuthContext.Provider value={{
                 user: null,
                 firebaseUser: null,
+                storeId: null,
                 loading: true,
                 isConfigured: isFirebaseConfigured,
                 signIn,
@@ -270,6 +323,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         <AuthContext.Provider value={{
             user,
             firebaseUser,
+            storeId: user?.storeId || null,
             loading,
             isConfigured: isFirebaseConfigured,
             signIn,

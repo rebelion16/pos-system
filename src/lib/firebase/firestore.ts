@@ -100,6 +100,14 @@ export const firestoreService = {
         return convertDoc<User>(snapshot.docs[0])
     },
 
+    getUserByStoreCode: async (storeCode: string): Promise<User | null> => {
+        if (!db) return null
+        const q = query(collection(db, COLLECTIONS.users), where('store_code', '==', storeCode))
+        const snapshot = await getDocs(q)
+        if (snapshot.empty) return null
+        return convertDoc<User>(snapshot.docs[0])
+    },
+
     createUser: async (userData: Omit<User, 'id' | 'created_at' | 'updated_at'>): Promise<User> => {
         if (!db) throw new Error('Firestore not configured')
         const now = Timestamp.now()
@@ -111,6 +119,26 @@ export const firestoreService = {
         return {
             ...userData,
             id: docRef.id,
+            created_at: now.toDate().toISOString(),
+            updated_at: now.toDate().toISOString(),
+        }
+    },
+
+    // Create user with specific ID (for matching Firebase Auth UID)
+    createUserWithId: async (id: string, userData: Omit<User, 'id' | 'created_at' | 'updated_at'>): Promise<User> => {
+        if (!db) throw new Error('Firestore not configured')
+        const now = Timestamp.now()
+        const docRef = doc(db, COLLECTIONS.users, id)
+        await import('firebase/firestore').then(({ setDoc }) =>
+            setDoc(docRef, {
+                ...userData,
+                created_at: now,
+                updated_at: now,
+            })
+        )
+        return {
+            ...userData,
+            id: id,
             created_at: now.toDate().toISOString(),
             updated_at: now.toDate().toISOString(),
         }
@@ -131,8 +159,13 @@ export const firestoreService = {
     },
 
     // ==================== CATEGORIES ====================
-    getCategories: async (): Promise<Category[]> => {
+    getCategories: async (storeId?: string): Promise<Category[]> => {
         if (!db) return []
+        if (storeId) {
+            const q = query(collection(db, COLLECTIONS.categories), where('store_id', '==', storeId))
+            const snapshot = await getDocs(q)
+            return snapshot.docs.map(doc => convertDoc<Category>(doc))
+        }
         const snapshot = await getDocs(collection(db, COLLECTIONS.categories))
         return snapshot.docs.map(doc => convertDoc<Category>(doc))
     },
@@ -176,8 +209,13 @@ export const firestoreService = {
     },
 
     // ==================== PRODUCTS ====================
-    getProducts: async (): Promise<Product[]> => {
+    getProducts: async (storeId?: string): Promise<Product[]> => {
         if (!db) return []
+        if (storeId) {
+            const q = query(collection(db, COLLECTIONS.products), where('store_id', '==', storeId))
+            const snapshot = await getDocs(q)
+            return snapshot.docs.map(doc => convertDoc<Product>(doc))
+        }
         const snapshot = await getDocs(collection(db, COLLECTIONS.products))
         return snapshot.docs.map(doc => convertDoc<Product>(doc))
     },
@@ -249,8 +287,13 @@ export const firestoreService = {
     },
 
     // ==================== SUPPLIERS ====================
-    getSuppliers: async (): Promise<Supplier[]> => {
+    getSuppliers: async (storeId?: string): Promise<Supplier[]> => {
         if (!db) return []
+        if (storeId) {
+            const q = query(collection(db, COLLECTIONS.suppliers), where('store_id', '==', storeId))
+            const snapshot = await getDocs(q)
+            return snapshot.docs.map(doc => convertDoc<Supplier>(doc))
+        }
         const snapshot = await getDocs(collection(db, COLLECTIONS.suppliers))
         return snapshot.docs.map(doc => convertDoc<Supplier>(doc))
     },
@@ -294,14 +337,21 @@ export const firestoreService = {
     },
 
     // ==================== TRANSACTIONS ====================
-    getTransactions: async (): Promise<Transaction[]> => {
+    getTransactions: async (storeId?: string): Promise<Transaction[]> => {
         if (!db) return []
+        if (storeId) {
+            const q = query(collection(db, COLLECTIONS.transactions), where('store_id', '==', storeId))
+            const snapshot = await getDocs(q)
+            return snapshot.docs.map(doc => convertDoc<Transaction>(doc))
+        }
         const snapshot = await getDocs(collection(db, COLLECTIONS.transactions))
         return snapshot.docs.map(doc => convertDoc<Transaction>(doc))
     },
 
-    getTransactionItems: async (): Promise<TransactionItem[]> => {
+    getTransactionItems: async (storeId?: string): Promise<TransactionItem[]> => {
         if (!db) return []
+        // Note: TransactionItems inherit storeId from their parent transaction
+        // For now, fetch all and let calling code filter if needed
         const snapshot = await getDocs(collection(db, COLLECTIONS.transactionItems))
         return snapshot.docs.map(doc => convertDoc<TransactionItem>(doc))
     },

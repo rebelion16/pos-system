@@ -33,11 +33,14 @@ const initializeDemoData = () => {
     if (isInitialized) return
 
     // Demo user
+    const demoUserId = generateId()
     const demoUser: User = {
-        id: generateId(),
+        id: demoUserId,
         email: 'demo@pos.com',
         name: 'Demo User',
         role: 'owner',
+        store_id: demoUserId,  // Owner's store_id is their own ID
+        store_code: 'DEMO001',  // Store code for joining
         avatar_url: null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),

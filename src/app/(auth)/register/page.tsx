@@ -3,16 +3,20 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Store, Mail, Lock, User, ArrowRight } from 'lucide-react'
+import { Store, Mail, Lock, User, ArrowRight, Building, Key } from 'lucide-react'
 import { Button, Input } from '@/components/ui'
 import { useAuth } from '@/hooks/useAuth'
 import styles from './register.module.css'
 
+type RegistrationType = 'owner' | 'staff'
+
 export default function RegisterPage() {
+    const [registrationType, setRegistrationType] = useState<RegistrationType>('owner')
     const [name, setName] = useState('')
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [confirmPassword, setConfirmPassword] = useState('')
+    const [storeCode, setStoreCode] = useState('')
     const [error, setError] = useState('')
     const [success, setSuccess] = useState(false)
     const [loading, setLoading] = useState(false)
@@ -37,12 +41,26 @@ export default function RegisterPage() {
             return
         }
 
+        // Staff needs store code
+        if (registrationType === 'staff' && !storeCode.trim()) {
+            setError('Kode toko wajib diisi untuk bergabung sebagai staff')
+            setLoading(false)
+            return
+        }
+
         try {
-            const { error: signUpError, needsVerification } = await signUp(email, password, name)
+            const { error: signUpError, needsVerification } = await signUp(
+                email,
+                password,
+                name,
+                registrationType === 'staff' ? storeCode.trim().toUpperCase() : undefined
+            )
 
             if (signUpError) {
                 if (signUpError.message.includes('already registered')) {
                     setError('Email sudah terdaftar')
+                } else if (signUpError.message.includes('store code not found')) {
+                    setError('Kode toko tidak ditemukan')
                 } else {
                     setError(signUpError.message)
                 }
@@ -51,9 +69,7 @@ export default function RegisterPage() {
 
             if (needsVerification) {
                 setSuccess(true)
-                // Don't redirect - show verification message
             } else {
-                // If no verification needed, redirect to dashboard
                 router.push('/dashboard')
             }
         } catch {
@@ -94,6 +110,26 @@ export default function RegisterPage() {
                     </div>
                     <h1 className={styles.title}>Buat Akun Baru</h1>
                     <p className={styles.subtitle}>Daftar untuk mulai menggunakan POS</p>
+                </div>
+
+                {/* Registration Type Selector */}
+                <div className={styles.typeSelector}>
+                    <button
+                        type="button"
+                        className={`${styles.typeBtn} ${registrationType === 'owner' ? styles.typeBtnActive : ''}`}
+                        onClick={() => setRegistrationType('owner')}
+                    >
+                        <Building size={18} />
+                        Pemilik Toko
+                    </button>
+                    <button
+                        type="button"
+                        className={`${styles.typeBtn} ${registrationType === 'staff' ? styles.typeBtnActive : ''}`}
+                        onClick={() => setRegistrationType('staff')}
+                    >
+                        <User size={18} />
+                        Staff / Kasir
+                    </button>
                 </div>
 
                 {/* Form */}
@@ -152,8 +188,28 @@ export default function RegisterPage() {
                         />
                     </div>
 
+                    {registrationType === 'staff' && (
+                        <div className={styles.inputWrapper}>
+                            <Key className={styles.inputIcon} size={18} />
+                            <Input
+                                type="text"
+                                placeholder="Kode Toko (dari pemilik)"
+                                value={storeCode}
+                                onChange={(e) => setStoreCode(e.target.value.toUpperCase())}
+                                required
+                                className={styles.inputWithIcon}
+                            />
+                        </div>
+                    )}
+
+                    {registrationType === 'owner' && (
+                        <p className={styles.infoText}>
+                            Sebagai pemilik, Anda akan mendapat kode toko untuk mengundang staff.
+                        </p>
+                    )}
+
                     <Button type="submit" loading={loading} className={styles.submitButton}>
-                        Daftar
+                        {registrationType === 'owner' ? 'Daftar sebagai Pemilik' : 'Gabung sebagai Staff'}
                         <ArrowRight size={16} />
                     </Button>
                 </form>

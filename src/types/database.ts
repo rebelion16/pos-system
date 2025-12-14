@@ -20,6 +20,8 @@ export interface Database {
                     email: string
                     name: string
                     role: UserRole
+                    store_id: string  // Owner's user ID (for owner = own ID, for admin/cashier = owner's ID)
+                    store_code: string | null  // Unique store code for joining (only for owners)
                     avatar_url: string | null
                     created_at: string
                     updated_at: string
@@ -29,6 +31,8 @@ export interface Database {
                     email: string
                     name: string
                     role?: UserRole
+                    store_id: string
+                    store_code?: string | null
                     avatar_url?: string | null
                     created_at?: string
                     updated_at?: string
@@ -38,6 +42,8 @@ export interface Database {
                     email?: string
                     name?: string
                     role?: UserRole
+                    store_id?: string
+                    store_code?: string | null
                     avatar_url?: string | null
                     updated_at?: string
                 }
