@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Calculator, DollarSign, CreditCard, Check, AlertCircle } from 'lucide-react'
+import { Calculator, DollarSign, CreditCard, Check, AlertCircle, Clock } from 'lucide-react'
 import { firestoreService } from '@/lib/firebase/firestore'
 import { useAuth } from '@/hooks/useAuth'
 import styles from './settlement.module.css'
@@ -12,6 +12,12 @@ interface SettlementData {
     qrisSales: number
     totalSales: number
     transactionCount: number
+}
+
+interface LastSettlement {
+    id: string
+    settled_at: string
+    cashier_name?: string
 }
 
 export default function SettlementPage() {
@@ -25,30 +31,47 @@ export default function SettlementPage() {
     })
     const [actualCash, setActualCash] = useState('')
     const [loading, setLoading] = useState(true)
+    const [settling, setSettling] = useState(false)
     const [settled, setSettled] = useState(false)
+    const [lastSettlement, setLastSettlement] = useState<LastSettlement | null>(null)
 
     useEffect(() => {
         if (!storeId) return
-        fetchTodaysSales()
+        fetchData()
     }, [storeId])
 
-    const fetchTodaysSales = async () => {
+    const fetchData = async () => {
         if (!storeId) return
         try {
+            // Get last settlement
+            const last = await firestoreService.getLastSettlement(storeId)
+            setLastSettlement(last)
+
+            // Get all transactions
             const transactions = await firestoreService.getTransactions(storeId)
 
-            // Filter today's completed transactions
-            const today = new Date().toISOString().split('T')[0]
-            const todaysTx = transactions.filter(tx =>
-                tx.created_at.startsWith(today) &&
-                tx.payment_status === 'completed'
-            )
+            // Filter transactions SINCE last settlement (or today if no settlement)
+            let filteredTx
+            if (last) {
+                // Filter transactions after last settlement
+                filteredTx = transactions.filter(tx =>
+                    new Date(tx.created_at) > new Date(last.settled_at) &&
+                    tx.payment_status === 'completed'
+                )
+            } else {
+                // No settlement yet, show today's transactions
+                const today = new Date().toISOString().split('T')[0]
+                filteredTx = transactions.filter(tx =>
+                    tx.created_at.startsWith(today) &&
+                    tx.payment_status === 'completed'
+                )
+            }
 
             let cashSales = 0
             let transferSales = 0
             let qrisSales = 0
 
-            todaysTx.forEach(tx => {
+            filteredTx.forEach(tx => {
                 if (tx.payment_method === 'cash') {
                     cashSales += tx.total
                 } else if (tx.payment_method === 'transfer') {
@@ -63,7 +86,7 @@ export default function SettlementPage() {
                 transferSales,
                 qrisSales,
                 totalSales: cashSales + transferSales + qrisSales,
-                transactionCount: todaysTx.length
+                transactionCount: filteredTx.length
             })
         } catch (error) {
             console.error('Error fetching sales data:', error)
@@ -80,14 +103,52 @@ export default function SettlementPage() {
         }).format(amount)
     }
 
+    const formatDate = (dateStr: string) => {
+        return new Date(dateStr).toLocaleString('id-ID', {
+            weekday: 'short',
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        })
+    }
+
     const actualCashAmount = parseFloat(actualCash.replace(/[^0-9]/g, '')) || 0
     const difference = actualCashAmount - data.cashSales
     const isMatch = Math.abs(difference) < 1
 
-    const handleSettle = () => {
-        // In a real app, save settlement data to database
-        setSettled(true)
-        setTimeout(() => setSettled(false), 3000)
+    const handleSettle = async () => {
+        if (!storeId || settling) return
+
+        setSettling(true)
+        try {
+            await firestoreService.createSettlement({
+                store_id: storeId,
+                cashier_id: user?.cashierId || user?.id,
+                cashier_name: user?.name || 'Unknown',
+                cash_sales: data.cashSales,
+                transfer_sales: data.transferSales,
+                qris_sales: data.qrisSales,
+                total_sales: data.totalSales,
+                actual_cash: actualCashAmount,
+                difference: difference,
+                transaction_count: data.transactionCount
+            })
+
+            setSettled(true)
+            setActualCash('')
+
+            // Refresh data to show reset
+            await fetchData()
+
+            setTimeout(() => setSettled(false), 3000)
+        } catch (error) {
+            console.error('Error saving settlement:', error)
+            alert('Gagal menyimpan settlement')
+        } finally {
+            setSettling(false)
+        }
     }
 
     if (loading) {
@@ -105,7 +166,7 @@ export default function SettlementPage() {
                 <div>
                     <h1 className={styles.title}>Settlement Kasir</h1>
                     <p className={styles.subtitle}>
-                        Rekonsiliasi penjualan hari ini • {new Date().toLocaleDateString('id-ID', {
+                        Rekonsiliasi penjualan • {new Date().toLocaleDateString('id-ID', {
                             weekday: 'long',
                             day: 'numeric',
                             month: 'long',
@@ -115,12 +176,21 @@ export default function SettlementPage() {
                 </div>
             </div>
 
+            {/* Last Settlement Info */}
+            {lastSettlement && (
+                <div className={styles.lastSettlement}>
+                    <Clock size={16} />
+                    <span>Settlement terakhir: {formatDate(lastSettlement.settled_at)}</span>
+                    {lastSettlement.cashier_name && <span>oleh {lastSettlement.cashier_name}</span>}
+                </div>
+            )}
+
             <div className={styles.mainGrid}>
                 {/* Sales Summary */}
                 <div className={styles.card}>
                     <h3 className={styles.cardTitle}>
                         <Calculator size={20} />
-                        Ringkasan Penjualan
+                        Ringkasan Penjualan {lastSettlement ? '(Sejak Settlement Terakhir)' : '(Hari Ini)'}
                     </h3>
 
                     <div className={styles.salesList}>
@@ -164,7 +234,7 @@ export default function SettlementPage() {
                             <span>{formatCurrency(data.totalSales)}</span>
                         </div>
                         <div className={styles.txCount}>
-                            {data.transactionCount} transaksi hari ini
+                            {data.transactionCount} transaksi {lastSettlement ? 'sejak settlement terakhir' : 'hari ini'}
                         </div>
                     </div>
                 </div>
@@ -215,15 +285,24 @@ export default function SettlementPage() {
                         <button
                             className={`btn btn-primary ${styles.settleBtn}`}
                             onClick={handleSettle}
-                            disabled={!actualCash}
+                            disabled={!actualCash || settling || data.transactionCount === 0}
                         >
-                            <Check size={18} />
-                            Simpan Settlement
+                            {settling ? (
+                                <>
+                                    <div className="spinner" style={{ width: 18, height: 18 }}></div>
+                                    Menyimpan...
+                                </>
+                            ) : (
+                                <>
+                                    <Check size={18} />
+                                    Simpan Settlement
+                                </>
+                            )}
                         </button>
 
                         {settled && (
                             <div className={styles.success}>
-                                ✅ Settlement berhasil disimpan!
+                                ✅ Settlement berhasil! Ringkasan penjualan telah di-reset.
                             </div>
                         )}
                     </div>
@@ -232,3 +311,4 @@ export default function SettlementPage() {
         </div>
     )
 }
+

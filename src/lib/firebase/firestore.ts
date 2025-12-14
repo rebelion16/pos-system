@@ -44,6 +44,7 @@ const COLLECTIONS = {
     stockHistory: 'stock_history',
     settings: 'settings',
     cashiers: 'cashiers',
+    settlements: 'settlements',
 }
 
 // Helper to generate UUID
@@ -758,6 +759,48 @@ export const firestoreService = {
         const snapshot = await getDocs(q)
         if (snapshot.empty) return null
         return convertDoc<Settings>(snapshot.docs[0])
+    },
+
+    // ==================== SETTLEMENTS ====================
+    getLastSettlement: async (storeId: string): Promise<{ id: string; settled_at: string; cashier_id?: string; cashier_name?: string } | null> => {
+        if (!db) return null
+        const q = query(
+            collection(db, COLLECTIONS.settlements),
+            where('store_id', '==', storeId),
+            orderBy('settled_at', 'desc')
+        )
+        const snapshot = await getDocs(q)
+        if (snapshot.empty) return null
+        const doc = snapshot.docs[0]
+        const data = doc.data()
+        return {
+            id: doc.id,
+            settled_at: toISOString(data.settled_at),
+            cashier_id: data.cashier_id,
+            cashier_name: data.cashier_name
+        }
+    },
+
+    createSettlement: async (data: {
+        store_id: string
+        cashier_id?: string
+        cashier_name?: string
+        cash_sales: number
+        transfer_sales: number
+        qris_sales: number
+        total_sales: number
+        actual_cash: number
+        difference: number
+        transaction_count: number
+    }): Promise<{ id: string; settled_at: string }> => {
+        if (!db) throw new Error('Firebase not configured')
+        const now = new Date().toISOString()
+        const docRef = await addDoc(collection(db, COLLECTIONS.settlements), {
+            ...data,
+            settled_at: now,
+            created_at: now
+        })
+        return { id: docRef.id, settled_at: now }
     },
 }
 
