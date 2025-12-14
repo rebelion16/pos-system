@@ -139,17 +139,55 @@ export default function POSPage() {
         return () => window.removeEventListener('keydown', handleKeyDown)
     }, [findAndAddByBarcode])
 
-    // Check Bluetooth Printer
+    // Check USB and Bluetooth Printers
     useEffect(() => {
-        const checkBluetoothPrinter = async () => {
+        const checkPrinters = async () => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const nav = navigator as any
+
+            // Check USB Printer using WebUSB API
             try {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const nav = navigator as any
+                if (nav.usb) {
+                    // Get previously authorized USB devices
+                    const usbDevices = await nav.usb.getDevices()
+                    if (usbDevices && usbDevices.length > 0) {
+                        // Check if any device looks like a printer (common vendor IDs)
+                        const usbPrinter = usbDevices.find((d: { vendorId?: number; productName?: string }) => {
+                            // Common thermal printer vendor IDs
+                            const printerVendors = [0x0483, 0x0416, 0x0493, 0x04b8, 0x0519, 0x067b, 0x1a86, 0x20d1, 0x0fe6]
+                            const isPrinterVendor = printerVendors.includes(d.vendorId || 0)
+                            const hasPrinterName = d.productName?.toLowerCase().includes('print') ||
+                                d.productName?.toLowerCase().includes('pos') ||
+                                d.productName?.toLowerCase().includes('receipt') ||
+                                d.productName?.toLowerCase().includes('thermal')
+                            return isPrinterVendor || hasPrinterName
+                        })
+                        if (usbPrinter) {
+                            console.log('[USB Printer] Detected:', usbPrinter.productName)
+                            setPrinterConnected(true)
+                            return // USB printer found, no need to check Bluetooth
+                        }
+                    }
+
+                    // Listen for USB device connect/disconnect
+                    nav.usb.addEventListener('connect', (e: { device: { productName?: string } }) => {
+                        console.log('[USB] Device connected:', e.device.productName)
+                        setPrinterConnected(true)
+                    })
+                    nav.usb.addEventListener('disconnect', () => {
+                        console.log('[USB] Device disconnected')
+                        setPrinterConnected(false)
+                    })
+                }
+            } catch (err) {
+                console.log('[USB] Not available or permission denied')
+            }
+
+            // Check Bluetooth Printer as fallback
+            try {
                 if (nav.bluetooth) {
-                    // Check if Web Bluetooth is available
                     const available = await nav.bluetooth.getAvailability?.()
                     if (available) {
-                        // Try to get previously paired devices
                         const devices = await nav.bluetooth.getDevices?.()
                         if (devices && devices.length > 0) {
                             const printer = devices.find((d: { name?: string }) =>
@@ -157,7 +195,10 @@ export default function POSPage() {
                                 d.name?.toLowerCase().includes('pos') ||
                                 d.name?.toLowerCase().includes('receipt')
                             )
-                            setPrinterConnected(!!printer)
+                            if (printer) {
+                                console.log('[Bluetooth Printer] Detected:', printer.name)
+                                setPrinterConnected(true)
+                            }
                         }
                     }
                 }
@@ -165,7 +206,7 @@ export default function POSPage() {
                 console.log('[Bluetooth] Not available or permission denied')
             }
         }
-        checkBluetoothPrinter()
+        checkPrinters()
     }, [])
 
     const addToCart = (product: Product) => {
@@ -357,7 +398,7 @@ export default function POSPage() {
                         <div className={`${styles.statusIndicator} ${scannerConnected ? styles.statusConnected : ''}`} title={scannerConnected ? 'Scanner USB Terhubung' : 'Scanner USB Tidak Terdeteksi'}>
                             <Scan size={16} />
                         </div>
-                        <div className={`${styles.statusIndicator} ${printerConnected ? styles.statusConnected : ''}`} title={printerConnected ? 'Printer Bluetooth Terhubung' : 'Printer Tidak Terdeteksi'}>
+                        <div className={`${styles.statusIndicator} ${printerConnected ? styles.statusConnected : ''}`} title={printerConnected ? 'Printer Terhubung (USB/Bluetooth)' : 'Printer Tidak Terdeteksi'}>
                             <Printer size={16} />
                         </div>
                     </div>
