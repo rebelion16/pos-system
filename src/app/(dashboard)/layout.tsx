@@ -17,7 +17,8 @@ import {
     LogOut,
     Menu,
     X,
-    ChevronDown
+    ChevronDown,
+    Clock
 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { AuthProvider } from '@/hooks/useAuth'
@@ -39,6 +40,7 @@ const navigation = [
 function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     const [sidebarOpen, setSidebarOpen] = useState(false)
     const [userMenuOpen, setUserMenuOpen] = useState(false)
+    const [currentTime, setCurrentTime] = useState(new Date())
     const pathname = usePathname()
     const router = useRouter()
     const { user, signOut, loading } = useAuth()
@@ -60,6 +62,14 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
             document.removeEventListener('mousedown', handleClickOutside)
         }
     }, [userMenuOpen])
+
+    // Live clock update every second
+    useEffect(() => {
+        const clockInterval = setInterval(() => {
+            setCurrentTime(new Date())
+        }, 1000)
+        return () => clearInterval(clockInterval)
+    }, [])
 
     const handleSignOut = async () => {
         await signOut()
@@ -125,6 +135,26 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
         }
     }
 
+    // Format time with timezone
+    const formatTimeWithTimezone = (date: Date) => {
+        const hours = date.getHours().toString().padStart(2, '0')
+        const minutes = date.getMinutes().toString().padStart(2, '0')
+        const offset = -date.getTimezoneOffset() / 60
+        let timezone = 'WIB'
+        if (offset === 8) timezone = 'WITA'
+        else if (offset === 9) timezone = 'WIT'
+        return `${hours}:${minutes} ${timezone}`
+    }
+
+    // Format day and date
+    const formatDayDate = (date: Date) => {
+        const days = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab']
+        const dayName = days[date.getDay()]
+        const day = date.getDate()
+        const month = (date.getMonth() + 1).toString().padStart(2, '0')
+        return `${dayName}, ${day}/${month}`
+    }
+
     return (
         <div className={styles.layout}>
             {/* Mobile sidebar overlay */}
@@ -148,6 +178,15 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
                     >
                         <X size={20} />
                     </button>
+                </div>
+
+                {/* Clock Widget */}
+                <div className={styles.clockWidget}>
+                    <div className={styles.clockTime}>
+                        <Clock size={16} />
+                        <span>{formatTimeWithTimezone(currentTime)}</span>
+                    </div>
+                    <div className={styles.clockDate}>{formatDayDate(currentTime)}</div>
                 </div>
 
                 <nav className={styles.nav}>
