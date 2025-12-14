@@ -98,15 +98,54 @@ export default function POSPage() {
 
     useEffect(() => {
         if (!storeId) return
-        fetchProducts()
-        fetchCategories()
-        fetchPaymentSettings()
+        loadAllData()
 
         // Focus search on mount
         if (searchRef.current) {
             searchRef.current.focus()
         }
     }, [storeId])
+
+    const loadAllData = async () => {
+        if (!storeId) return
+        try {
+            // Fetch ALL data in parallel for maximum performance
+            const [productsData, categoriesData, accounts, qris, settings, receiptConfig] = await Promise.all([
+                firestoreService.getActiveProductsWithRelations(storeId),
+                firestoreService.getCategories(storeId),
+                firestoreService.getBankAccounts(storeId),
+                firestoreService.getQRISConfig(storeId),
+                firestoreService.getSettings(storeId),
+                firestoreService.getReceiptSettings(storeId),
+            ])
+
+            // Set products and categories
+            setProducts(productsData)
+            setCategories(categoriesData)
+
+            // Set payment settings
+            setBankAccounts(accounts.filter(a => a.is_active))
+            setQrisConfig(qris)
+            if (accounts.length > 0) {
+                setSelectedBank(accounts[0].id)
+            }
+            if (settings) {
+                setStoreSettings({
+                    name: settings.store_name || 'Toko',
+                    phone: settings.store_phone,
+                    address: settings.store_address,
+                })
+            }
+            if (receiptConfig) {
+                setReceiptSettings(receiptConfig)
+            }
+        } catch (err) {
+            console.warn('Error loading POS data:', err)
+            setProducts([])
+        } finally {
+            setLoading(false)
+        }
+    }
 
     const fetchPaymentSettings = async () => {
         if (!storeId) return
