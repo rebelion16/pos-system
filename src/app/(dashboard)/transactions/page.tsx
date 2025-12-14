@@ -38,7 +38,7 @@ export default function TransactionsPage() {
         try {
             const [store, receipt] = await Promise.all([
                 firestoreService.getSettings(storeId),
-                firestoreService.getReceiptSettings()
+                firestoreService.getReceiptSettings(storeId)
             ])
             setStoreSettings(store)
             setReceiptSettings(receipt)

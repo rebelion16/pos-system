@@ -27,7 +27,7 @@ import { Button } from '@/components/ui'
 import { useAuth } from '@/hooks/useAuth'
 import styles from './receipt.module.css'
 
-const DEFAULT_SETTINGS: ReceiptSettings = {
+const DEFAULT_SETTINGS: Omit<ReceiptSettings, 'store_id'> = {
     show_logo: false,
     logo_url: null,
     show_store_name: true,
@@ -45,7 +45,7 @@ const DEFAULT_SETTINGS: ReceiptSettings = {
 
 export default function ReceiptSettingsPage() {
     const { storeId } = useAuth()
-    const [settings, setSettings] = useState<ReceiptSettings>(DEFAULT_SETTINGS)
+    const [settings, setSettings] = useState<Omit<ReceiptSettings, 'store_id'>>(DEFAULT_SETTINGS)
     const [storeSettings, setStoreSettings] = useState<Settings | null>(null)
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
@@ -60,7 +60,7 @@ export default function ReceiptSettingsPage() {
         if (!storeId) return
         try {
             const [receiptData, storeData] = await Promise.all([
-                firestoreService.getReceiptSettings(),
+                firestoreService.getReceiptSettings(storeId),
                 firestoreService.getSettings(storeId)
             ])
             if (receiptData) {
@@ -77,9 +77,10 @@ export default function ReceiptSettingsPage() {
     }
 
     const handleSave = async () => {
+        if (!storeId) return
         setSaving(true)
         try {
-            await firestoreService.saveReceiptSettings(settings)
+            await firestoreService.saveReceiptSettings(storeId, settings)
             showToast('Pengaturan struk berhasil disimpan!')
         } catch (err) {
             console.error('Error saving settings:', err)
@@ -95,7 +96,7 @@ export default function ReceiptSettingsPage() {
     }
 
     const handlePresetChange = (preset: ReceiptPreset) => {
-        let newSettings: ReceiptSettings
+        let newSettings: Omit<ReceiptSettings, 'store_id'>
 
         switch (preset) {
             case 'simple':

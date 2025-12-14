@@ -16,6 +16,7 @@ import Link from 'next/link'
 import { firestoreService } from '@/lib/firebase/firestore'
 import { BankAccount, QRISConfig } from '@/types/database'
 import { Button, Input } from '@/components/ui'
+import { useAuth } from '@/hooks/useAuth'
 import styles from './payment.module.css'
 
 const BANK_LIST = [
@@ -36,6 +37,7 @@ const BANK_LIST = [
 ]
 
 export default function PaymentSettingsPage() {
+    const { storeId } = useAuth()
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
     const [showSaved, setShowSaved] = useState(false)
@@ -52,7 +54,7 @@ export default function PaymentSettingsPage() {
     })
 
     // QRIS Config
-    const [qrisConfig, setQrisConfig] = useState<QRISConfig>({
+    const [qrisConfig, setQrisConfig] = useState<Omit<QRISConfig, 'store_id'>>({
         enabled: false,
         merchant_name: '',
         merchant_id: '',
@@ -63,14 +65,16 @@ export default function PaymentSettingsPage() {
     })
 
     useEffect(() => {
+        if (!storeId) return
         fetchData()
-    }, [])
+    }, [storeId])
 
     const fetchData = async () => {
+        if (!storeId) return
         try {
             const [accounts, qris] = await Promise.all([
-                firestoreService.getBankAccounts(),
-                firestoreService.getQRISConfig(),
+                firestoreService.getBankAccounts(storeId),
+                firestoreService.getQRISConfig(storeId),
             ])
             setBankAccounts(accounts)
             if (qris) setQrisConfig(qris)
@@ -115,7 +119,7 @@ export default function PaymentSettingsPage() {
             if (editingBank) {
                 await firestoreService.updateBankAccount(editingBank.id, bankForm)
             } else {
-                await firestoreService.createBankAccount(bankForm)
+                await firestoreService.createBankAccount({ ...bankForm, store_id: storeId! })
             }
             await fetchData()
             setShowBankModal(false)
@@ -140,9 +144,10 @@ export default function PaymentSettingsPage() {
 
     // QRIS Handlers
     const saveQRIS = async () => {
+        if (!storeId) return
         setSaving(true)
         try {
-            await firestoreService.saveQRISConfig(qrisConfig)
+            await firestoreService.saveQRISConfig(storeId, qrisConfig)
             showSavedToast()
         } catch (error) {
             console.error('Error saving QRIS:', error)

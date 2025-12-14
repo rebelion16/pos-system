@@ -633,8 +633,17 @@ export const firestoreService = {
     },
 
     // ==================== BANK ACCOUNTS ====================
-    getBankAccounts: async (): Promise<BankAccount[]> => {
+    getBankAccounts: async (storeId?: string): Promise<BankAccount[]> => {
         if (!db) return []
+        if (storeId) {
+            const q = query(
+                collection(db, 'bank_accounts'),
+                where('store_id', '==', storeId),
+                orderBy('created_at', 'desc')
+            )
+            const snapshot = await getDocs(q)
+            return snapshot.docs.map(doc => convertDoc<BankAccount>(doc))
+        }
         const snapshot = await getDocs(
             query(collection(db, 'bank_accounts'), orderBy('created_at', 'desc'))
         )
@@ -671,43 +680,73 @@ export const firestoreService = {
     },
 
     // ==================== QRIS CONFIG ====================
-    getQRISConfig: async (): Promise<QRISConfig | null> => {
+    getQRISConfig: async (storeId?: string): Promise<QRISConfig | null> => {
         if (!db) return null
+        if (storeId) {
+            const q = query(collection(db, 'qris_config'), where('store_id', '==', storeId))
+            const snapshot = await getDocs(q)
+            if (snapshot.empty) return null
+            return snapshot.docs[0].data() as QRISConfig
+        }
         const docRef = doc(db, 'settings', 'qris_config')
         const docSnap = await getDoc(docRef)
         if (!docSnap.exists()) return null
         return docSnap.data() as QRISConfig
     },
 
-    saveQRISConfig: async (config: QRISConfig): Promise<void> => {
+    saveQRISConfig: async (storeId: string, config: Omit<QRISConfig, 'store_id'>): Promise<void> => {
         if (!db) throw new Error('Firestore not configured')
-        const docRef = doc(db, 'settings', 'qris_config')
-        await updateDoc(docRef, { ...config }).catch(async () => {
-            // Document doesn't exist, create it
-            const { addDoc: _, ...data } = config as QRISConfig & { addDoc?: unknown }
-            await import('firebase/firestore').then(async ({ setDoc }) => {
-                await setDoc(docRef, data)
+
+        // Find existing config for this store
+        const q = query(collection(db, 'qris_config'), where('store_id', '==', storeId))
+        const snapshot = await getDocs(q)
+
+        if (snapshot.empty) {
+            // Create new config
+            await addDoc(collection(db, 'qris_config'), {
+                store_id: storeId,
+                ...config
             })
-        })
+        } else {
+            // Update existing
+            const docRef = doc(db, 'qris_config', snapshot.docs[0].id)
+            await updateDoc(docRef, { ...config })
+        }
     },
 
     // ==================== RECEIPT SETTINGS ====================
-    getReceiptSettings: async (): Promise<ReceiptSettings | null> => {
+    getReceiptSettings: async (storeId?: string): Promise<ReceiptSettings | null> => {
         if (!db) return null
+        if (storeId) {
+            const q = query(collection(db, 'receipt_settings'), where('store_id', '==', storeId))
+            const snapshot = await getDocs(q)
+            if (snapshot.empty) return null
+            return snapshot.docs[0].data() as ReceiptSettings
+        }
         const docRef = doc(db, 'settings', 'receipt')
         const docSnap = await getDoc(docRef)
         if (!docSnap.exists()) return null
         return docSnap.data() as ReceiptSettings
     },
 
-    saveReceiptSettings: async (settings: ReceiptSettings): Promise<void> => {
+    saveReceiptSettings: async (storeId: string, settings: Omit<ReceiptSettings, 'store_id'>): Promise<void> => {
         if (!db) throw new Error('Firestore not configured')
-        const docRef = doc(db, 'settings', 'receipt')
-        await updateDoc(docRef, { ...settings }).catch(async () => {
-            await import('firebase/firestore').then(async ({ setDoc }) => {
-                await setDoc(docRef, settings)
+
+        // Find existing settings for this store
+        const q = query(collection(db, 'receipt_settings'), where('store_id', '==', storeId))
+        const snapshot = await getDocs(q)
+
+        if (snapshot.empty) {
+            // Create new settings
+            await addDoc(collection(db, 'receipt_settings'), {
+                store_id: storeId,
+                ...settings
             })
-        })
+        } else {
+            // Update existing
+            const docRef = doc(db, 'receipt_settings', snapshot.docs[0].id)
+            await updateDoc(docRef, { ...settings })
+        }
     },
 }
 

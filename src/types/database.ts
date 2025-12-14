@@ -267,6 +267,7 @@ export interface Database {
             bank_accounts: {
                 Row: {
                     id: string
+                    store_id: string
                     bank_name: string
                     account_number: string
                     account_holder: string
@@ -276,6 +277,7 @@ export interface Database {
                 }
                 Insert: {
                     id?: string
+                    store_id: string
                     bank_name: string
                     account_number: string
                     account_holder: string
@@ -409,6 +411,7 @@ export type TransactionWithItems = Transaction & {
 
 // QRIS Configuration
 export interface QRISConfig {
+    store_id: string
     enabled: boolean
     merchant_name: string
     merchant_id: string
@@ -428,6 +431,8 @@ export interface BankAccountExtended extends BankAccount {
 export type ReceiptPreset = 'simple' | 'standard' | 'detailed'
 
 export interface ReceiptSettings {
+    store_id: string
+
     // Header
     show_logo: boolean
     logo_url: string | null

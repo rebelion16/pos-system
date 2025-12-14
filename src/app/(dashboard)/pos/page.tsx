@@ -34,7 +34,7 @@ import styles from './pos.module.css'
 
 type ReceiptType = 'none' | 'print' | 'whatsapp' | 'telegram'
 
-const DEFAULT_RECEIPT_SETTINGS: ReceiptSettings = {
+const DEFAULT_RECEIPT_SETTINGS: Omit<ReceiptSettings, 'store_id'> = {
     show_logo: false,
     logo_url: null,
     show_store_name: true,
@@ -91,7 +91,7 @@ export default function POSPage() {
         phone: string | null
         address: string | null
     } | null>(null)
-    const [receiptSettings, setReceiptSettings] = useState<ReceiptSettings>(DEFAULT_RECEIPT_SETTINGS)
+    const [receiptSettings, setReceiptSettings] = useState<Omit<ReceiptSettings, 'store_id'>>(DEFAULT_RECEIPT_SETTINGS)
     const searchRef = useRef<HTMLInputElement>(null)
     const barcodeBufferRef = useRef('')
     const barcodeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -112,10 +112,10 @@ export default function POSPage() {
         if (!storeId) return
         try {
             const [accounts, qris, settings, receiptConfig] = await Promise.all([
-                firestoreService.getBankAccounts(),
-                firestoreService.getQRISConfig(),
+                firestoreService.getBankAccounts(storeId),
+                firestoreService.getQRISConfig(storeId),
                 firestoreService.getSettings(storeId),
-                firestoreService.getReceiptSettings(),
+                firestoreService.getReceiptSettings(storeId),
             ])
             setBankAccounts(accounts.filter(a => a.is_active))
             setQrisConfig(qris)
