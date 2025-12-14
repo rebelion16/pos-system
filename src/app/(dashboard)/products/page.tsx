@@ -17,9 +17,11 @@ import { productApiService, ProductApiResponse } from '@/lib/productApi'
 import { Product, Category, ProductWithRelations } from '@/types/database'
 import { Button, Input } from '@/components/ui'
 import { BarcodeScanner } from '@/components/BarcodeScanner'
+import { useAuth } from '@/hooks/useAuth'
 import styles from './products.module.css'
 
 export default function ProductsPage() {
+    const { storeId } = useAuth()
     const [products, setProducts] = useState<ProductWithRelations[]>([])
     const [categories, setCategories] = useState<Category[]>([])
     const [loading, setLoading] = useState(true)
@@ -46,13 +48,15 @@ export default function ProductsPage() {
     const [lookupResult, setLookupResult] = useState<ProductApiResponse | null>(null)
 
     useEffect(() => {
+        if (!storeId) return
         fetchProducts()
         fetchCategories()
-    }, [])
+    }, [storeId])
 
     const fetchProducts = async () => {
+        if (!storeId) return
         try {
-            const data = await firestoreService.getProductsWithRelations()
+            const data = await firestoreService.getProductsWithRelations(storeId)
             setProducts(data)
         } catch (err) {
             console.warn('Error fetching products:', err)
@@ -63,7 +67,8 @@ export default function ProductsPage() {
     }
 
     const fetchCategories = async () => {
-        const data = await firestoreService.getCategories()
+        if (!storeId) return
+        const data = await firestoreService.getCategories(storeId)
         setCategories(data)
     }
 
@@ -91,7 +96,7 @@ export default function ProductsPage() {
             if (editingProduct) {
                 await firestoreService.updateProduct(editingProduct.id, productData)
             } else {
-                await firestoreService.createProduct(productData)
+                await firestoreService.createProduct({ ...productData, store_id: storeId! })
             }
 
             setShowModal(false)

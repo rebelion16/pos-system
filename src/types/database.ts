@@ -51,6 +51,7 @@ export interface Database {
             categories: {
                 Row: {
                     id: string
+                    store_id: string
                     name: string
                     description: string | null
                     color: string | null
@@ -59,6 +60,7 @@ export interface Database {
                 }
                 Insert: {
                     id?: string
+                    store_id: string
                     name: string
                     description?: string | null
                     color?: string | null
@@ -75,6 +77,7 @@ export interface Database {
             suppliers: {
                 Row: {
                     id: string
+                    store_id: string
                     name: string
                     phone: string | null
                     email: string | null
@@ -84,6 +87,7 @@ export interface Database {
                 }
                 Insert: {
                     id?: string
+                    store_id: string
                     name: string
                     phone?: string | null
                     email?: string | null
@@ -102,6 +106,7 @@ export interface Database {
             products: {
                 Row: {
                     id: string
+                    store_id: string
                     category_id: string | null
                     supplier_id: string | null
                     name: string
@@ -119,6 +124,7 @@ export interface Database {
                 }
                 Insert: {
                     id?: string
+                    store_id: string
                     category_id?: string | null
                     supplier_id?: string | null
                     name: string

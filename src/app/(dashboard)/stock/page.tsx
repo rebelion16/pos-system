@@ -4,21 +4,25 @@ import { useEffect, useState } from 'react'
 import { Warehouse, AlertTriangle, TrendingUp, TrendingDown, Plus, Search } from 'lucide-react'
 import { firestoreService } from '@/lib/firebase/firestore'
 import { ProductWithRelations } from '@/types/database'
+import { useAuth } from '@/hooks/useAuth'
 import styles from './stock.module.css'
 
 export default function StockPage() {
+    const { storeId } = useAuth()
     const [products, setProducts] = useState<ProductWithRelations[]>([])
     const [loading, setLoading] = useState(true)
     const [searchQuery, setSearchQuery] = useState('')
     const [filter, setFilter] = useState<'all' | 'low'>('all')
 
     useEffect(() => {
+        if (!storeId) return
         fetchProducts()
-    }, [])
+    }, [storeId])
 
     const fetchProducts = async () => {
+        if (!storeId) return
         try {
-            const data = await firestoreService.getProductsWithRelations()
+            const data = await firestoreService.getProductsWithRelations(storeId)
             const activeProducts = data
                 .filter(p => p.is_active)
                 .sort((a, b) => a.stock - b.stock)

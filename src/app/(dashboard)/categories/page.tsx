@@ -5,6 +5,7 @@ import { Plus, Edit, Trash2, FolderOpen, X } from 'lucide-react'
 import { firestoreService } from '@/lib/firebase/firestore'
 import { Category } from '@/types/database'
 import { Button, Input } from '@/components/ui'
+import { useAuth } from '@/hooks/useAuth'
 import styles from './categories.module.css'
 
 const colorOptions = [
@@ -19,6 +20,7 @@ const colorOptions = [
 ]
 
 export default function CategoriesPage() {
+    const { storeId } = useAuth()
     const [categories, setCategories] = useState<Category[]>([])
     const [loading, setLoading] = useState(true)
     const [showModal, setShowModal] = useState(false)
@@ -32,12 +34,14 @@ export default function CategoriesPage() {
     const [error, setError] = useState('')
 
     useEffect(() => {
+        if (!storeId) return
         fetchCategories()
-    }, [])
+    }, [storeId])
 
     const fetchCategories = async () => {
+        if (!storeId) return
         try {
-            const data = await firestoreService.getCategories()
+            const data = await firestoreService.getCategories(storeId)
             setCategories(data)
         } catch (error) {
             console.error('Error fetching categories:', error)
@@ -62,6 +66,7 @@ export default function CategoriesPage() {
                 console.log('[Categories] Updated successfully')
             } else {
                 const result = await firestoreService.createCategory({
+                    store_id: storeId!,
                     name: formData.name,
                     description: formData.description || null,
                     color: formData.color,

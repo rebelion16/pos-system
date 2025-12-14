@@ -220,12 +220,12 @@ export const firestoreService = {
         return snapshot.docs.map(doc => convertDoc<Product>(doc))
     },
 
-    getProductsWithRelations: async (): Promise<ProductWithRelations[]> => {
+    getProductsWithRelations: async (storeId?: string): Promise<ProductWithRelations[]> => {
         if (!db) return []
         const [products, categories, suppliers] = await Promise.all([
-            firestoreService.getProducts(),
-            firestoreService.getCategories(),
-            firestoreService.getSuppliers(),
+            firestoreService.getProducts(storeId),
+            firestoreService.getCategories(storeId),
+            firestoreService.getSuppliers(storeId),
         ])
         return products.map(p => ({
             ...p,
@@ -234,8 +234,8 @@ export const firestoreService = {
         }))
     },
 
-    getActiveProductsWithRelations: async (): Promise<ProductWithRelations[]> => {
-        const products = await firestoreService.getProductsWithRelations()
+    getActiveProductsWithRelations: async (storeId?: string): Promise<ProductWithRelations[]> => {
+        const products = await firestoreService.getProductsWithRelations(storeId)
         return products.filter(p => p.is_active && p.stock > 0)
     },
 
@@ -356,10 +356,22 @@ export const firestoreService = {
         return snapshot.docs.map(doc => convertDoc<TransactionItem>(doc))
     },
 
-    getTodayTransactions: async (): Promise<Transaction[]> => {
+    getTodayTransactions: async (storeId?: string): Promise<Transaction[]> => {
         if (!db) return []
         const today = new Date()
         today.setHours(0, 0, 0, 0)
+
+        // If storeId provided, filter by store_id as well
+        if (storeId) {
+            const q = query(
+                collection(db, COLLECTIONS.transactions),
+                where('store_id', '==', storeId),
+                where('created_at', '>=', Timestamp.fromDate(today))
+            )
+            const snapshot = await getDocs(q)
+            return snapshot.docs.map(doc => convertDoc<Transaction>(doc))
+        }
+
         const q = query(
             collection(db, COLLECTIONS.transactions),
             where('created_at', '>=', Timestamp.fromDate(today))
@@ -565,72 +577,12 @@ export const firestoreService = {
         return `INV${year}${month}${day}${random}`
     },
 
-    // Initialize demo data if empty
+    // Initialize demo data - DEPRECATED with multi-tenancy
+    // Each store now has its own isolated data
     initializeDemoData: async (): Promise<void> => {
-        if (!db) return
-
-        // Check if already has data
-        const categories = await firestoreService.getCategories()
-        if (categories.length > 0) return
-
-        // Create demo categories
-        const cat1 = await firestoreService.createCategory({ name: 'Makanan', description: 'Produk makanan', color: '#10B981' })
-        const cat2 = await firestoreService.createCategory({ name: 'Minuman', description: 'Produk minuman', color: '#3B82F6' })
-        const cat3 = await firestoreService.createCategory({ name: 'Snack', description: 'Makanan ringan', color: '#F59E0B' })
-
-        // Create demo products
-        await firestoreService.createProduct({
-            category_id: cat1.id,
-            supplier_id: null,
-            name: 'Nasi Goreng',
-            sku: 'MKN001',
-            barcode: null,
-            description: 'Nasi goreng spesial',
-            price: 15000,
-            cost_price: 10000,
-            stock: 50,
-            min_stock: 10,
-            image_url: null,
-            is_active: true,
-        })
-        await firestoreService.createProduct({
-            category_id: cat2.id,
-            supplier_id: null,
-            name: 'Es Teh Manis',
-            sku: 'MNM001',
-            barcode: null,
-            description: 'Es teh manis segar',
-            price: 5000,
-            cost_price: 2000,
-            stock: 100,
-            min_stock: 20,
-            image_url: null,
-            is_active: true,
-        })
-        await firestoreService.createProduct({
-            category_id: cat3.id,
-            supplier_id: null,
-            name: 'Keripik Singkong',
-            sku: 'SNK001',
-            barcode: null,
-            description: 'Keripik singkong renyah',
-            price: 8000,
-            cost_price: 5000,
-            stock: 30,
-            min_stock: 10,
-            image_url: null,
-            is_active: true,
-        })
-
-        // Create default settings
-        await firestoreService.updateSettings({
-            store_name: 'Toko Demo',
-            store_address: 'Jl. Contoh No. 123',
-            store_phone: '08123456789',
-            tax_rate: 0,
-            currency: 'IDR',
-            theme: 'light-blue',
-        })
+        // No longer needed with multi-tenancy
+        // Each store owner creates their own data
+        return
     },
 
     // Delete all products and transactions (sales data reset)

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { Search, FileText, Calendar, Download, Printer } from 'lucide-react'
 import { firestoreService } from '@/lib/firebase/firestore'
 import { Transaction, ReceiptSettings, Settings } from '@/types/database'
+import { useAuth } from '@/hooks/useAuth'
 import styles from './transactions.module.css'
 
 interface TransactionWithItems extends Transaction {
@@ -17,15 +18,17 @@ interface TransactionWithItems extends Transaction {
 }
 
 export default function TransactionsPage() {
+    const { storeId } = useAuth()
     const [transactions, setTransactions] = useState<TransactionWithItems[]>([])
     const [loading, setLoading] = useState(true)
     const [searchQuery, setSearchQuery] = useState('')
     const [dateFilter, setDateFilter] = useState('')
 
     useEffect(() => {
+        if (!storeId) return
         fetchTransactions()
         fetchSettings()
-    }, [dateFilter])
+    }, [dateFilter, storeId])
 
     const [storeSettings, setStoreSettings] = useState<Settings | null>(null)
     const [receiptSettings, setReceiptSettings] = useState<ReceiptSettings | null>(null)
@@ -44,9 +47,10 @@ export default function TransactionsPage() {
     }
 
     const fetchTransactions = async () => {
+        if (!storeId) return
         try {
-            const allTransactions = await firestoreService.getTransactions()
-            const allItems = await firestoreService.getTransactionItems()
+            const allTransactions = await firestoreService.getTransactions(storeId)
+            const allItems = await firestoreService.getTransactionItems(storeId)
 
             // Combine transactions with their items
             let txWithItems: TransactionWithItems[] = allTransactions.map(tx => ({

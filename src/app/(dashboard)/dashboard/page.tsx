@@ -32,7 +32,7 @@ interface RecentTransaction {
 }
 
 export default function DashboardPage() {
-    const { user } = useAuth()
+    const { user, storeId } = useAuth()
     const [stats, setStats] = useState<DashboardStats>({
         todaySales: 0,
         todayTransactions: 0,
@@ -45,15 +45,17 @@ export default function DashboardPage() {
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
+        if (!storeId) return
         fetchDashboardData()
-    }, [])
+    }, [storeId])
 
     const fetchDashboardData = async () => {
+        if (!storeId) return
         try {
             // Get data from Firestore
-            const products = await firestoreService.getProducts()
-            const transactions = await firestoreService.getTransactions()
-            const todayTransactions = await firestoreService.getTodayTransactions()
+            const products = await firestoreService.getProducts(storeId)
+            const transactions = await firestoreService.getTransactions(storeId)
+            const todayTransactions = await firestoreService.getTodayTransactions(storeId)
 
             const today = new Date()
             const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)

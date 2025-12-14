@@ -56,7 +56,7 @@ interface CartItem {
 }
 
 export default function POSPage() {
-    const { user } = useAuth()
+    const { user, storeId } = useAuth()
     const [products, setProducts] = useState<ProductWithRelations[]>([])
     const [categories, setCategories] = useState<Category[]>([])
     const [cart, setCart] = useState<CartItem[]>([])
@@ -97,6 +97,7 @@ export default function POSPage() {
     const barcodeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
     useEffect(() => {
+        if (!storeId) return
         fetchProducts()
         fetchCategories()
         fetchPaymentSettings()
@@ -105,7 +106,7 @@ export default function POSPage() {
         if (searchRef.current) {
             searchRef.current.focus()
         }
-    }, [])
+    }, [storeId])
 
     const fetchPaymentSettings = async () => {
         try {
@@ -136,8 +137,9 @@ export default function POSPage() {
     }
 
     const fetchProducts = async () => {
+        if (!storeId) return
         try {
-            const data = await firestoreService.getActiveProductsWithRelations()
+            const data = await firestoreService.getActiveProductsWithRelations(storeId)
             setProducts(data)
         } catch (err) {
             console.warn('Error fetching products:', err)
@@ -148,7 +150,8 @@ export default function POSPage() {
     }
 
     const fetchCategories = async () => {
-        const data = await firestoreService.getCategories()
+        if (!storeId) return
+        const data = await firestoreService.getCategories(storeId)
         setCategories(data)
     }
 

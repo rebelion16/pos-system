@@ -15,6 +15,7 @@ import {
 import { firestoreService } from '@/lib/firebase/firestore'
 import { syncTransactionsToSheets, getWebAppUrl } from '@/lib/googleSheets'
 import { Button } from '@/components/ui'
+import { useAuth } from '@/hooks/useAuth'
 import styles from './reports.module.css'
 
 interface ReportData {
@@ -37,6 +38,7 @@ interface TransactionData {
 }
 
 export default function ReportsPage() {
+    const { storeId } = useAuth()
     const [reportData, setReportData] = useState<ReportData | null>(null)
     const [transactions, setTransactions] = useState<TransactionData[]>([])
     const [loading, setLoading] = useState(true)
@@ -49,9 +51,10 @@ export default function ReportsPage() {
     const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today')
 
     useEffect(() => {
+        if (!storeId) return
         fetchReportData()
         setHasWebAppUrl(!!getWebAppUrl())
-    }, [period])
+    }, [period, storeId])
 
     const getDateRange = () => {
         const now = new Date()
@@ -75,13 +78,14 @@ export default function ReportsPage() {
     }
 
     const fetchReportData = async () => {
+        if (!storeId) return
         setLoading(true)
         try {
             const { start, end } = getDateRange()
 
             // Fetch from Firestore
-            const allTransactions = await firestoreService.getTransactions()
-            const allItems = await firestoreService.getTransactionItems()
+            const allTransactions = await firestoreService.getTransactions(storeId)
+            const allItems = await firestoreService.getTransactionItems(storeId)
 
             // Filter by date and status
             const filteredTx = allTransactions.filter(tx => {
@@ -159,8 +163,8 @@ export default function ReportsPage() {
         setExporting(true)
         try {
             // Fetch categories and products for category grouping
-            const categories = await firestoreService.getCategories()
-            const products = await firestoreService.getProducts()
+            const categories = await firestoreService.getCategories(storeId || undefined)
+            const products = await firestoreService.getProducts(storeId || undefined)
 
             // Helper to escape CSV fields
             const escapeCSV = (val: any) => {

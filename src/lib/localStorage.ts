@@ -49,19 +49,19 @@ const initializeDemoData = () => {
 
     // Demo categories
     const categories: Category[] = [
-        { id: generateId(), name: 'Makanan', description: 'Produk makanan', color: '#10B981', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: generateId(), name: 'Minuman', description: 'Produk minuman', color: '#3B82F6', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: generateId(), name: 'Snack', description: 'Makanan ringan', color: '#F59E0B', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { id: generateId(), store_id: demoUserId, name: 'Makanan', description: 'Produk makanan', color: '#10B981', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { id: generateId(), store_id: demoUserId, name: 'Minuman', description: 'Produk minuman', color: '#3B82F6', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { id: generateId(), store_id: demoUserId, name: 'Snack', description: 'Makanan ringan', color: '#F59E0B', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
     ]
     localStorage.setItem(STORAGE_KEYS.categories, JSON.stringify(categories))
 
     // Demo products
     const products: Product[] = [
-        { id: generateId(), category_id: categories[0].id, supplier_id: null, name: 'Nasi Goreng', sku: 'MKN001', barcode: null, description: 'Nasi goreng spesial', price: 15000, cost_price: 10000, stock: 50, min_stock: 10, image_url: null, is_active: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: generateId(), category_id: categories[0].id, supplier_id: null, name: 'Mie Goreng', sku: 'MKN002', barcode: null, description: 'Mie goreng spesial', price: 12000, cost_price: 8000, stock: 40, min_stock: 10, image_url: null, is_active: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: generateId(), category_id: categories[1].id, supplier_id: null, name: 'Es Teh Manis', sku: 'MNM001', barcode: null, description: 'Es teh manis segar', price: 5000, cost_price: 2000, stock: 100, min_stock: 20, image_url: null, is_active: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: generateId(), category_id: categories[1].id, supplier_id: null, name: 'Es Jeruk', sku: 'MNM002', barcode: null, description: 'Es jeruk segar', price: 6000, cost_price: 3000, stock: 80, min_stock: 20, image_url: null, is_active: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: generateId(), category_id: categories[2].id, supplier_id: null, name: 'Keripik Singkong', sku: 'SNK001', barcode: null, description: 'Keripik singkong renyah', price: 8000, cost_price: 5000, stock: 30, min_stock: 10, image_url: null, is_active: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { id: generateId(), store_id: demoUserId, category_id: categories[0].id, supplier_id: null, name: 'Nasi Goreng', sku: 'MKN001', barcode: null, description: 'Nasi goreng spesial', price: 15000, cost_price: 10000, stock: 50, min_stock: 10, image_url: null, is_active: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { id: generateId(), store_id: demoUserId, category_id: categories[0].id, supplier_id: null, name: 'Mie Goreng', sku: 'MKN002', barcode: null, description: 'Mie goreng spesial', price: 12000, cost_price: 8000, stock: 40, min_stock: 10, image_url: null, is_active: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { id: generateId(), store_id: demoUserId, category_id: categories[1].id, supplier_id: null, name: 'Es Teh Manis', sku: 'MNM001', barcode: null, description: 'Es teh manis segar', price: 5000, cost_price: 2000, stock: 100, min_stock: 20, image_url: null, is_active: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { id: generateId(), store_id: demoUserId, category_id: categories[1].id, supplier_id: null, name: 'Es Jeruk', sku: 'MNM002', barcode: null, description: 'Es jeruk segar', price: 6000, cost_price: 3000, stock: 80, min_stock: 20, image_url: null, is_active: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { id: generateId(), store_id: demoUserId, category_id: categories[2].id, supplier_id: null, name: 'Keripik Singkong', sku: 'SNK001', barcode: null, description: 'Keripik singkong renyah', price: 8000, cost_price: 5000, stock: 30, min_stock: 10, image_url: null, is_active: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
     ]
     localStorage.setItem(STORAGE_KEYS.products, JSON.stringify(products))
 

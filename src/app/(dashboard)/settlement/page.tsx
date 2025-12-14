@@ -15,7 +15,7 @@ interface SettlementData {
 }
 
 export default function SettlementPage() {
-    const { user } = useAuth()
+    const { user, storeId } = useAuth()
     const [data, setData] = useState<SettlementData>({
         cashSales: 0,
         transferSales: 0,
@@ -28,12 +28,14 @@ export default function SettlementPage() {
     const [settled, setSettled] = useState(false)
 
     useEffect(() => {
+        if (!storeId) return
         fetchTodaysSales()
-    }, [])
+    }, [storeId])
 
     const fetchTodaysSales = async () => {
+        if (!storeId) return
         try {
-            const transactions = await firestoreService.getTransactions()
+            const transactions = await firestoreService.getTransactions(storeId)
 
             // Filter today's completed transactions
             const today = new Date().toISOString().split('T')[0]

@@ -15,9 +15,11 @@ import {
 import { firestoreService } from '@/lib/firebase/firestore'
 import { Button } from '@/components/ui'
 import { Supplier } from '@/types/database'
+import { useAuth } from '@/hooks/useAuth'
 import styles from './suppliers.module.css'
 
 export default function SuppliersPage() {
+    const { storeId } = useAuth()
     const [suppliers, setSuppliers] = useState<Supplier[]>([])
     const [loading, setLoading] = useState(true)
     const [searchQuery, setSearchQuery] = useState('')
@@ -32,12 +34,14 @@ export default function SuppliersPage() {
     const [address, setAddress] = useState('')
 
     useEffect(() => {
+        if (!storeId) return
         fetchSuppliers()
-    }, [])
+    }, [storeId])
 
     const fetchSuppliers = async () => {
+        if (!storeId) return
         try {
-            const data = await firestoreService.getSuppliers()
+            const data = await firestoreService.getSuppliers(storeId)
             // Sort by name
             data.sort((a, b) => a.name.localeCompare(b.name))
             setSuppliers(data)
@@ -96,7 +100,7 @@ export default function SuppliersPage() {
             if (editingSupplier) {
                 await firestoreService.updateSupplier(editingSupplier.id, supplierData)
             } else {
-                await firestoreService.createSupplier(supplierData)
+                await firestoreService.createSupplier({ ...supplierData, store_id: storeId! })
             }
 
             await fetchSuppliers()
