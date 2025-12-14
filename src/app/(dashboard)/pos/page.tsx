@@ -336,11 +336,21 @@ export default function POSPage() {
 
         const matchesName = product.name.toLowerCase().includes(query)
         const matchesSku = product.sku?.toLowerCase().includes(query)
-        const matchesFullBarcode = product.barcode?.includes(searchQuery)
-        // Match last 4 digits of barcode
-        const matchesLast4Barcode = query.length >= 4 && product.barcode?.slice(-4) === query.slice(-4)
-        // Also try if search query matches last N digits
-        const matchesBarcodeEnd = product.barcode?.endsWith(searchQuery)
+        const matchesFullBarcode = product.barcode?.toLowerCase().includes(query.toLowerCase())
+
+        // Check if input is numeric (likely barcode digits)
+        const isNumericQuery = /^\d+$/.test(query)
+
+        // Match last 4 digits of barcode (when user inputs exactly 4 digits or more)
+        let matchesLast4Barcode = false
+        if (isNumericQuery && query.length >= 4) {
+            const last4Query = query.slice(-4)
+            const last4Barcode = product.barcode?.slice(-4)
+            matchesLast4Barcode = last4Query === last4Barcode
+        }
+
+        // Also match if barcode ends with the search query
+        const matchesBarcodeEnd = isNumericQuery && product.barcode?.endsWith(query)
 
         const matchesSearch = matchesName || matchesSku || matchesFullBarcode || matchesLast4Barcode || matchesBarcodeEnd
         const matchesCategory = !selectedCategory || product.category_id === selectedCategory
