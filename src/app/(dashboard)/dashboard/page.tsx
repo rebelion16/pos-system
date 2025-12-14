@@ -53,19 +53,30 @@ export default function DashboardPage() {
         if (!storeId) return
         try {
             // Get data from Firestore
-            const products = await firestoreService.getProducts(storeId)
-            const transactions = await firestoreService.getTransactions(storeId)
-            const todayTransactions = await firestoreService.getTodayTransactions(storeId)
+            const [products, transactions] = await Promise.all([
+                firestoreService.getProducts(storeId),
+                firestoreService.getTransactions(storeId)
+            ])
 
             const today = new Date()
+            const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate())
             const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
             const startOfLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1)
             const endOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0)
 
             // Calculate stats
-            const todaySales = todayTransactions
-                .filter(t => t.payment_status === 'completed')
+            const todaySales = transactions
+                .filter(t => {
+                    const txDate = new Date(t.created_at)
+                    return txDate >= startOfDay && t.payment_status === 'completed'
+                })
                 .reduce((sum, t) => sum + Number(t.total), 0)
+
+            const todayTransactionsCount = transactions
+                .filter(t => {
+                    const txDate = new Date(t.created_at)
+                    return txDate >= startOfDay
+                }).length
 
             const monthlySales = transactions
                 .filter(t => new Date(t.created_at) >= startOfMonth && t.payment_status === 'completed')
@@ -83,7 +94,7 @@ export default function DashboardPage() {
 
             setStats({
                 todaySales,
-                todayTransactions: todayTransactions.length,
+                todayTransactions: todayTransactionsCount,
                 totalProducts: activeProducts.length,
                 lowStockProducts: lowStockProducts.length,
                 monthlySales,
