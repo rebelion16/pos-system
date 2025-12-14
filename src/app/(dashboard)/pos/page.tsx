@@ -784,8 +784,7 @@ export default function POSPage() {
             infoHtml += `<div>Invoice: ${lastTransactionData.invoice}</div>`
         }
         if (receiptSettings.show_date_time) {
-            infoHtml += `<div>${dayName}, ${date}</div>`
-            infoHtml += `<div>Jam: ${timeStr}</div>`
+            infoHtml += `<div class="item"><span>${dayName}, ${date}</span><span>${timeStr}</span></div>`
         }
 
         // Build items section

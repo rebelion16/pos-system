@@ -166,8 +166,7 @@ export default function TransactionsPage() {
             infoHtml += `<div>Invoice: ${tx.invoice_number}</div>`
         }
         if (!receiptSettings || receiptSettings.show_date_time) {
-            infoHtml += `<div>${dayName}, ${date}</div>`
-            infoHtml += `<div>Jam: ${timeStr}</div>`
+            infoHtml += `<div class="item"><span>${dayName}, ${date}</span><span>${timeStr}</span></div>`
         }
 
         // Build items section
