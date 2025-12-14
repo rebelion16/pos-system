@@ -9,8 +9,11 @@ import {
     Package,
     X,
     Camera,
+    Download,
+    Loader2,
 } from 'lucide-react'
 import { firestoreService } from '@/lib/firebase/firestore'
+import { productApiService, ProductApiResponse } from '@/lib/productApi'
 import { Product, Category, ProductWithRelations } from '@/types/database'
 import { Button, Input } from '@/components/ui'
 import { BarcodeScanner } from '@/components/BarcodeScanner'
@@ -39,6 +42,8 @@ export default function ProductsPage() {
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState('')
     const [showScanner, setShowScanner] = useState(false)
+    const [lookingUp, setLookingUp] = useState(false)
+    const [lookupResult, setLookupResult] = useState<ProductApiResponse | null>(null)
 
     useEffect(() => {
         fetchProducts()
@@ -148,7 +153,47 @@ export default function ProductsPage() {
 
     const openAddModal = () => {
         resetForm()
+        setLookupResult(null)
         setShowModal(true)
+    }
+
+    // Lookup product from Indonesian database API
+    const lookupProductByBarcode = async (barcode: string) => {
+        if (!barcode || barcode.length < 8) {
+            setError('Barcode harus minimal 8 digit')
+            return
+        }
+
+        setLookingUp(true)
+        setError('')
+        setLookupResult(null)
+
+        try {
+            const result = await productApiService.searchByBarcode(barcode, false)
+
+            if (result.success && result.data && !Array.isArray(result.data)) {
+                const product = result.data
+                setLookupResult(product)
+
+                // Auto-fill form with data from API
+                setFormData(prev => ({
+                    ...prev,
+                    name: product.name || prev.name,
+                    barcode: product.barcode || barcode,
+                    description: product.description || prev.description,
+                    price: product.price?.toString() || prev.price,
+                }))
+
+                setError('')
+            } else {
+                setError('Produk tidak ditemukan di database Indonesia')
+            }
+        } catch (err) {
+            console.error('Lookup error:', err)
+            setError('Gagal mencari produk. Coba lagi.')
+        } finally {
+            setLookingUp(false)
+        }
     }
 
     const formatCurrency = (amount: number) => {
@@ -313,16 +358,45 @@ export default function ProductsPage() {
                                             onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
                                             placeholder="8992761234567"
                                         />
-                                        <button
-                                            type="button"
-                                            className={styles.scanBtn}
-                                            onClick={() => setShowScanner(true)}
-                                            title="Scan Barcode"
-                                        >
-                                            <Camera size={18} />
-                                        </button>
+                                        <div className={styles.barcodeButtons}>
+                                            <button
+                                                type="button"
+                                                className={styles.scanBtn}
+                                                onClick={() => setShowScanner(true)}
+                                                title="Scan Barcode"
+                                            >
+                                                <Camera size={18} />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className={`${styles.scanBtn} ${styles.lookupBtn}`}
+                                                onClick={() => lookupProductByBarcode(formData.barcode)}
+                                                disabled={lookingUp || !formData.barcode}
+                                                title="Cari dari Database Indonesia"
+                                            >
+                                                {lookingUp ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
+
+                                {/* Lookup Result Banner */}
+                                {lookupResult && (
+                                    <div className={styles.lookupResultBanner}>
+                                        <div className={styles.lookupResultIcon}>✓</div>
+                                        <div className={styles.lookupResultInfo}>
+                                            <strong>Data ditemukan!</strong>
+                                            <span>{lookupResult.name} {lookupResult.brand && `(${lookupResult.brand})`}</span>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            className={styles.lookupResultClose}
+                                            onClick={() => setLookupResult(null)}
+                                        >
+                                            <X size={16} />
+                                        </button>
+                                    </div>
+                                )}
 
                                 <div className={styles.formRow}>
                                     <Input

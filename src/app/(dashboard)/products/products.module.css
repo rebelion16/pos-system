@@ -307,6 +307,97 @@
     border-color: var(--primary-600);
 }
 
+.scanBtn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Barcode action buttons container */
+.barcodeButtons {
+    position: absolute;
+    right: 0.5rem;
+    bottom: 0.5rem;
+    display: flex;
+    gap: 0.25rem;
+}
+
+.barcodeButtons .scanBtn {
+    position: static;
+}
+
+/* Lookup button */
+.lookupBtn {
+    border-color: var(--success-500);
+    background: var(--success-50);
+    color: var(--success-600);
+}
+
+.lookupBtn:hover:not(:disabled) {
+    background: var(--success-100);
+    border-color: var(--success-600);
+}
+
+/* Lookup result banner */
+.lookupResultBanner {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: linear-gradient(135deg, var(--success-50), var(--success-100));
+    border: 1px solid var(--success-200);
+    border-radius: var(--radius);
+    margin-bottom: 0.5rem;
+}
+
+.lookupResultIcon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    background: var(--success-500);
+    color: white;
+    border-radius: var(--radius-full);
+    font-size: 0.75rem;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.lookupResultInfo {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+}
+
+.lookupResultInfo strong {
+    font-size: 0.8125rem;
+    color: var(--success-700);
+}
+
+.lookupResultInfo span {
+    font-size: 0.75rem;
+    color: var(--success-600);
+}
+
+.lookupResultClose {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border: none;
+    background: transparent;
+    color: var(--success-600);
+    cursor: pointer;
+    border-radius: var(--radius);
+    flex-shrink: 0;
+}
+
+.lookupResultClose:hover {
+    background: var(--success-200);
+}
+
 /* Responsive */
 @media (min-width: 480px) {
     .productGrid {
