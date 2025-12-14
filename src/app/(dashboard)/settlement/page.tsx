@@ -50,22 +50,43 @@ export default function SettlementPage() {
             // Get all transactions
             const transactions = await firestoreService.getTransactions(storeId)
 
-            // Filter transactions SINCE last settlement (or today if no settlement)
+            console.log('Store ID:', storeId)
+            console.log('Last settlement:', last)
+            console.log('Total transactions:', transactions.length)
+
+            // Get today's date at midnight for comparison
+            const today = new Date()
+            today.setHours(0, 0, 0, 0)
+            const todayStr = today.toISOString().split('T')[0]
+
             let filteredTx
             if (last) {
-                // Filter transactions after last settlement
-                filteredTx = transactions.filter(tx =>
-                    new Date(tx.created_at) > new Date(last.settled_at) &&
-                    tx.payment_status === 'completed'
-                )
+                // Check if last settlement was today
+                const settlementDate = new Date(last.settled_at)
+                const isSettlementToday = last.settled_at.startsWith(todayStr)
+
+                if (isSettlementToday) {
+                    // Settlement already done today, show transactions after settlement
+                    filteredTx = transactions.filter(tx =>
+                        new Date(tx.created_at) > settlementDate &&
+                        tx.payment_status === 'completed'
+                    )
+                } else {
+                    // Last settlement was on a previous day, show today's transactions
+                    filteredTx = transactions.filter(tx =>
+                        tx.created_at.startsWith(todayStr) &&
+                        tx.payment_status === 'completed'
+                    )
+                }
             } else {
                 // No settlement yet, show today's transactions
-                const today = new Date().toISOString().split('T')[0]
                 filteredTx = transactions.filter(tx =>
-                    tx.created_at.startsWith(today) &&
+                    tx.created_at.startsWith(todayStr) &&
                     tx.payment_status === 'completed'
                 )
             }
+
+            console.log('Filtered transactions:', filteredTx.length)
 
             let cashSales = 0
             let transferSales = 0
@@ -190,7 +211,7 @@ export default function SettlementPage() {
                 <div className={styles.card}>
                     <h3 className={styles.cardTitle}>
                         <Calculator size={20} />
-                        Ringkasan Penjualan {lastSettlement ? '(Sejak Settlement Terakhir)' : '(Hari Ini)'}
+                        Ringkasan Penjualan Hari Ini
                     </h3>
 
                     <div className={styles.salesList}>
@@ -234,7 +255,7 @@ export default function SettlementPage() {
                             <span>{formatCurrency(data.totalSales)}</span>
                         </div>
                         <div className={styles.txCount}>
-                            {data.transactionCount} transaksi {lastSettlement ? 'sejak settlement terakhir' : 'hari ini'}
+                            {data.transactionCount} transaksi hari ini
                         </div>
                     </div>
                 </div>
