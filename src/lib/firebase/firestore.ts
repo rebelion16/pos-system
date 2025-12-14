@@ -638,11 +638,12 @@ export const firestoreService = {
         if (storeId) {
             const q = query(
                 collection(db, 'bank_accounts'),
-                where('store_id', '==', storeId),
-                orderBy('created_at', 'desc')
+                where('store_id', '==', storeId)
             )
             const snapshot = await getDocs(q)
-            return snapshot.docs.map(doc => convertDoc<BankAccount>(doc))
+            return snapshot.docs
+                .map(doc => convertDoc<BankAccount>(doc))
+                .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
         }
         const snapshot = await getDocs(
             query(collection(db, 'bank_accounts'), orderBy('created_at', 'desc'))
