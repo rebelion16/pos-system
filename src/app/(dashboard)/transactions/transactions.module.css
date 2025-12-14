@@ -128,3 +128,24 @@
     color: var(--text-secondary);
     font-size: 0.875rem;
 }
+
+.printBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    background: var(--primary-50);
+    border: 1px solid var(--primary-200);
+    border-radius: var(--radius);
+    color: var(--primary-600);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.printBtn:hover {
+    background: var(--primary-100);
+    border-color: var(--primary-300);
+    color: var(--primary-700);
+}

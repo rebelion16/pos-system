@@ -31,7 +31,7 @@ const navigation = [
     { name: 'Kategori', href: '/categories', icon: FolderOpen, roles: ['owner', 'admin'] },
     { name: 'Stok', href: '/stock', icon: Warehouse, roles: ['owner', 'admin'] },
     { name: 'Supplier', href: '/suppliers', icon: Truck, roles: ['owner', 'admin'] },
-    { name: 'Transaksi', href: '/transactions', icon: FileText, roles: ['owner', 'admin'] },
+    { name: 'Transaksi', href: '/transactions', icon: FileText, roles: ['owner', 'admin', 'cashier'] },
     { name: 'Laporan', href: '/reports', icon: FileText, roles: ['owner', 'admin'] },
     { name: 'Pengguna', href: '/users', icon: Users, roles: ['owner', 'admin'] },
     { name: 'Pengaturan', href: '/settings', icon: Settings, roles: ['owner', 'admin'] },

@@ -482,7 +482,205 @@ export default function POSPage() {
         return text
     }
 
-    // Send receipt via WhatsApp or Telegram
+    // Generate receipt as image using canvas
+    const generateReceiptImage = (): Promise<string> => {
+        return new Promise((resolve) => {
+            if (!lastTransactionData) {
+                resolve('')
+                return
+            }
+
+            const canvas = document.createElement('canvas')
+            const ctx = canvas.getContext('2d')
+            if (!ctx) {
+                resolve('')
+                return
+            }
+
+            // Set canvas size
+            const width = 320
+            let height = 400
+            const padding = 20
+            const lineHeight = 20
+
+            // Calculate height based on items
+            height = 250 + (lastTransactionData.items.length * (receiptSettings.show_item_details ? 40 : 20))
+            if (receiptSettings.show_logo && receiptSettings.logo_url) height += 60
+            if (receiptSettings.show_footer) height += 40
+
+            canvas.width = width
+            canvas.height = height
+
+            // Background
+            ctx.fillStyle = '#ffffff'
+            ctx.fillRect(0, 0, width, height)
+
+            // Text settings
+            ctx.fillStyle = '#000000'
+            ctx.textAlign = 'center'
+
+            let y = padding
+
+            // Logo (if available and enabled)
+            if (receiptSettings.show_logo && receiptSettings.logo_url) {
+                // Skip logo for now, just leave space
+                y += 60
+            }
+
+            // Store Name
+            if (receiptSettings.show_store_name) {
+                ctx.font = 'bold 16px Arial'
+                ctx.fillText(storeSettings?.name || 'TOKO', width / 2, y)
+                y += 20
+            }
+
+            // Store Address
+            if (receiptSettings.show_store_address && storeSettings?.address) {
+                ctx.font = '11px Arial'
+                ctx.fillText(storeSettings.address, width / 2, y)
+                y += 14
+            }
+
+            // Store Phone
+            if (receiptSettings.show_store_phone && storeSettings?.phone) {
+                ctx.font = '11px Arial'
+                ctx.fillText(`Telp: ${storeSettings.phone}`, width / 2, y)
+                y += 14
+            }
+
+            // Divider
+            y += 5
+            ctx.beginPath()
+            ctx.setLineDash([4, 2])
+            ctx.moveTo(padding, y)
+            ctx.lineTo(width - padding, y)
+            ctx.stroke()
+            ctx.setLineDash([])
+            y += 15
+
+            // Title
+            ctx.font = 'bold 14px Arial'
+            ctx.fillText('STRUK PEMBAYARAN', width / 2, y)
+            y += 20
+
+            // Divider
+            ctx.beginPath()
+            ctx.setLineDash([4, 2])
+            ctx.moveTo(padding, y)
+            ctx.lineTo(width - padding, y)
+            ctx.stroke()
+            ctx.setLineDash([])
+            y += 15
+
+            // Invoice & Date
+            ctx.textAlign = 'left'
+            ctx.font = '12px Arial'
+
+            if (receiptSettings.show_invoice_number) {
+                ctx.fillText(`Invoice: ${lastTransactionData.invoice}`, padding, y)
+                y += lineHeight
+            }
+
+            if (receiptSettings.show_date_time) {
+                const now = new Date()
+                const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu']
+                const dayName = days[now.getDay()]
+                const date = now.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                const hours = now.getHours().toString().padStart(2, '0')
+                const minutes = now.getMinutes().toString().padStart(2, '0')
+                const offset = -now.getTimezoneOffset() / 60
+                let timezone = 'WIB'
+                if (offset === 8) timezone = 'WITA'
+                else if (offset === 9) timezone = 'WIT'
+
+                ctx.fillText(`${dayName}, ${date}`, padding, y)
+                y += lineHeight
+                ctx.fillText(`Jam: ${hours}:${minutes} ${timezone}`, padding, y)
+                y += lineHeight
+            }
+
+            // Items divider
+            y += 5
+            ctx.beginPath()
+            ctx.setLineDash([4, 2])
+            ctx.moveTo(padding, y)
+            ctx.lineTo(width - padding, y)
+            ctx.stroke()
+            ctx.setLineDash([])
+            y += 10
+
+            // Items
+            lastTransactionData.items.forEach(item => {
+                ctx.font = '12px Arial'
+                ctx.fillText(item.name, padding, y)
+                y += lineHeight
+
+                if (receiptSettings.show_item_details) {
+                    ctx.font = '11px Arial'
+                    ctx.fillStyle = '#666666'
+                    ctx.fillText(`  ${item.qty} x ${formatCurrency(item.price)} = ${formatCurrency(item.subtotal)}`, padding, y)
+                    ctx.fillStyle = '#000000'
+                    y += lineHeight
+                }
+            })
+
+            // Total divider
+            y += 5
+            ctx.beginPath()
+            ctx.setLineDash([4, 2])
+            ctx.moveTo(padding, y)
+            ctx.lineTo(width - padding, y)
+            ctx.stroke()
+            ctx.setLineDash([])
+            y += 15
+
+            // Total
+            ctx.font = 'bold 14px Arial'
+            ctx.fillText('TOTAL', padding, y)
+            ctx.textAlign = 'right'
+            ctx.fillText(formatCurrency(lastTransactionData.total), width - padding, y)
+            ctx.textAlign = 'left'
+            y += lineHeight
+
+            // Change
+            if (receiptSettings.show_change && lastTransactionData.change !== undefined && lastTransactionData.change > 0) {
+                ctx.font = '12px Arial'
+                ctx.fillText('Kembalian', padding, y)
+                ctx.textAlign = 'right'
+                ctx.fillText(formatCurrency(lastTransactionData.change), width - padding, y)
+                ctx.textAlign = 'left'
+                y += lineHeight
+            }
+
+            // Payment method
+            if (receiptSettings.show_payment_method) {
+                ctx.font = '12px Arial'
+                ctx.fillText(`Metode: ${lastTransactionData.paymentMethod.toUpperCase()}`, padding, y)
+                y += lineHeight
+            }
+
+            // Footer divider
+            y += 5
+            ctx.beginPath()
+            ctx.setLineDash([4, 2])
+            ctx.moveTo(padding, y)
+            ctx.lineTo(width - padding, y)
+            ctx.stroke()
+            ctx.setLineDash([])
+            y += 15
+
+            // Footer
+            if (receiptSettings.show_footer && receiptSettings.footer_text) {
+                ctx.textAlign = 'center'
+                ctx.font = '11px Arial'
+                ctx.fillText(receiptSettings.footer_text, width / 2, y)
+            }
+
+            resolve(canvas.toDataURL('image/png'))
+        })
+    }
+
+    // Send receipt via WhatsApp or Telegram (as downloadable image)
     const sendReceipt = async () => {
         if (!receiptContact.trim()) {
             alert('Masukkan nomor WhatsApp atau username Telegram!')
@@ -490,46 +688,40 @@ export default function POSPage() {
         }
 
         setSendingReceipt(true)
-        const receiptText = generateReceiptText()
 
         try {
+            // Generate receipt image
+            const imageData = await generateReceiptImage()
+
+            if (imageData) {
+                // Download the image
+                const link = document.createElement('a')
+                link.download = `struk-${lastTransactionData?.invoice || 'receipt'}.png`
+                link.href = imageData
+                link.click()
+            }
+
+            // Open messaging app
             if (receiptType === 'whatsapp') {
-                // Format phone number
                 let phone = receiptContact.replace(/\D/g, '')
-                if (phone.startsWith('0')) {
-                    phone = '62' + phone.slice(1)
-                }
-                if (!phone.startsWith('62')) {
-                    phone = '62' + phone
-                }
-
-                // Open WhatsApp Web
-                const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(receiptText)}`
-                window.open(waUrl, '_blank')
+                if (phone.startsWith('0')) phone = '62' + phone.slice(1)
+                if (!phone.startsWith('62')) phone = '62' + phone
+                window.open(`https://wa.me/${phone}`, '_blank')
             } else if (receiptType === 'telegram') {
-                // Check if input is phone number or username
                 const isPhoneNumber = /^[0-9+]/.test(receiptContact.trim())
-
                 if (isPhoneNumber) {
-                    // Format phone number for Telegram
                     let phone = receiptContact.replace(/\D/g, '')
-                    if (phone.startsWith('0')) {
-                        phone = '62' + phone.slice(1)
-                    }
-                    if (!phone.startsWith('62')) {
-                        phone = '62' + phone
-                    }
-                    const tgUrl = `https://t.me/+${phone}?text=${encodeURIComponent(receiptText)}`
-                    window.open(tgUrl, '_blank')
+                    if (phone.startsWith('0')) phone = '62' + phone.slice(1)
+                    if (!phone.startsWith('62')) phone = '62' + phone
+                    window.open(`https://t.me/+${phone}`, '_blank')
                 } else {
-                    // Use as username
                     let username = receiptContact.replace('@', '')
-                    const tgUrl = `https://t.me/${username}?text=${encodeURIComponent(receiptText)}`
-                    window.open(tgUrl, '_blank')
+                    window.open(`https://t.me/${username}`, '_blank')
                 }
             }
 
-            // Show success and close modal
+            alert('✅ Struk berhasil didownload!\n\nKirim gambar struk yang sudah terdownload ke chat customer.')
+
             setShowReceiptModal(false)
             setShowSuccess(true)
             setTimeout(() => setShowSuccess(false), 3000)
