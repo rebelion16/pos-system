@@ -73,8 +73,17 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     }, [])
 
     const handleSignOut = async () => {
-        await signOut()
-        router.push('/login')
+        try {
+            await signOut()
+            // Small delay to ensure state is cleared
+            setTimeout(() => {
+                router.push('/login')
+            }, 100)
+        } catch (error) {
+            console.error('Error signing out:', error)
+            // Force redirect even if there's an error
+            router.push('/login')
+        }
     }
 
     // Redirect to login if not authenticated

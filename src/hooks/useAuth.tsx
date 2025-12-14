@@ -330,14 +330,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const signOut = async () => {
-        // Clear cashier session
-        sessionStorage.removeItem(CASHIER_SESSION_KEY)
-
-        if (auth) {
-            await firebaseSignOut(auth)
+        // Clear cashier session first
+        try {
+            sessionStorage.removeItem(CASHIER_SESSION_KEY)
+        } catch (e) {
+            console.warn('Failed to clear session storage:', e)
         }
+
+        // Clear user state immediately
         setUser(null)
         setFirebaseUser(null)
+
+        // Then try to sign out from Firebase (may not be needed for cashier)
+        try {
+            if (auth && auth.currentUser) {
+                await firebaseSignOut(auth)
+            }
+        } catch (e) {
+            console.warn('Firebase signout error:', e)
+        }
     }
 
     if (!mounted) {
