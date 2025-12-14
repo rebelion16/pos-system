@@ -375,10 +375,30 @@
 
 @media (min-width: 1024px) {
     .statsGrid {
-        grid-template-columns: repeat(4, 1fr);
+        grid-template-columns: repeat(3, 1fr);
     }
 
     .grid {
         grid-template-columns: 1fr 1.5fr;
+    }
+}
+
+@media (min-width: 1280px) {
+    .statsGrid {
+        grid-template-columns: repeat(5, 1fr);
+    }
+
+    .grid {
+        grid-template-columns: 1fr 1fr 1.5fr;
+    }
+}
+
+@media (min-width: 1536px) {
+    .statsGrid {
+        grid-template-columns: repeat(5, 1fr);
+    }
+
+    .statValue {
+        font-size: 1.75rem;
     }
 }

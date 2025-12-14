@@ -339,6 +339,7 @@
 .content {
     flex: 1;
     padding: 1.5rem;
+    width: 100%;
 }
 
 /* Desktop Styles */
@@ -365,12 +366,19 @@
 
     .content {
         padding: 2rem;
+        width: 100%;
     }
 }
 
-@media (min-width: 1280px) {
+@media (min-width: 1440px) {
     .content {
-        max-width: 1400px;
+        padding: 2rem 3rem;
+    }
+}
+
+@media (min-width: 1920px) {
+    .content {
+        padding: 2rem 4rem;
     }
 }
 
