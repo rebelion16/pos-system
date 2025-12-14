@@ -27,7 +27,9 @@ import {
     Settings,
     ProductWithRelations,
     StockHistory,
-    Cashier
+    Cashier,
+    BankAccount,
+    QRISConfig
 } from '@/types/database'
 
 // Collection names
@@ -614,6 +616,65 @@ export const firestoreService = {
         }
 
         return { productsDeleted, transactionsDeleted }
+    },
+
+    // ==================== BANK ACCOUNTS ====================
+    getBankAccounts: async (): Promise<BankAccount[]> => {
+        if (!db) return []
+        const snapshot = await getDocs(
+            query(collection(db, 'bank_accounts'), orderBy('created_at', 'desc'))
+        )
+        return snapshot.docs.map(doc => convertDoc<BankAccount>(doc))
+    },
+
+    createBankAccount: async (data: Omit<BankAccount, 'id' | 'created_at' | 'updated_at'>): Promise<BankAccount> => {
+        if (!db) throw new Error('Firestore not configured')
+        const now = new Date().toISOString()
+        const docRef = await addDoc(collection(db, 'bank_accounts'), {
+            ...data,
+            created_at: now,
+            updated_at: now,
+        })
+        return {
+            id: docRef.id,
+            ...data,
+            created_at: now,
+            updated_at: now,
+        }
+    },
+
+    updateBankAccount: async (id: string, data: Partial<BankAccount>): Promise<void> => {
+        if (!db) throw new Error('Firestore not configured')
+        await updateDoc(doc(db, 'bank_accounts', id), {
+            ...data,
+            updated_at: new Date().toISOString(),
+        })
+    },
+
+    deleteBankAccount: async (id: string): Promise<void> => {
+        if (!db) throw new Error('Firestore not configured')
+        await deleteDoc(doc(db, 'bank_accounts', id))
+    },
+
+    // ==================== QRIS CONFIG ====================
+    getQRISConfig: async (): Promise<QRISConfig | null> => {
+        if (!db) return null
+        const docRef = doc(db, 'settings', 'qris_config')
+        const docSnap = await getDoc(docRef)
+        if (!docSnap.exists()) return null
+        return docSnap.data() as QRISConfig
+    },
+
+    saveQRISConfig: async (config: QRISConfig): Promise<void> => {
+        if (!db) throw new Error('Firestore not configured')
+        const docRef = doc(db, 'settings', 'qris_config')
+        await updateDoc(docRef, { ...config }).catch(async () => {
+            // Document doesn't exist, create it
+            const { addDoc: _, ...data } = config as QRISConfig & { addDoc?: unknown }
+            await import('firebase/firestore').then(async ({ setDoc }) => {
+                await setDoc(docRef, data)
+            })
+        })
     },
 }
 

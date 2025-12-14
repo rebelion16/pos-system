@@ -392,3 +392,20 @@ export type TransactionWithItems = Transaction & {
     items: TransactionItem[]
     user?: User | null
 }
+
+// QRIS Configuration
+export interface QRISConfig {
+    enabled: boolean
+    merchant_name: string
+    merchant_id: string
+    qris_static_code: string | null  // Static QRIS image URL
+    qris_dynamic_enabled: boolean
+    nmid: string | null  // National Merchant ID
+    api_key: string | null  // For dynamic QRIS generation
+}
+
+// Extended BankAccount with logo
+export interface BankAccountExtended extends BankAccount {
+    bank_logo?: string | null
+    bank_code?: string | null
+}
