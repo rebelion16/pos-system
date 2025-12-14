@@ -425,7 +425,7 @@ export default function POSPage() {
 
         text += `Metode: ${lastTransactionData.paymentMethod.toUpperCase()}\n`
         text += `━━━━━━━━━━━━━━━━━━\n`
-        text += `Terima kasih atas kunjungan Anda!`
+        text += `Terima kasih sudah beli di ${storeSettings?.name || 'TOKO'}!`
 
         return text
     }
