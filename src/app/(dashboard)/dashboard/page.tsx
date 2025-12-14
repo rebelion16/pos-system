@@ -7,7 +7,8 @@ import {
     ShoppingCart,
     Package,
     Users,
-    ArrowRight
+    ArrowRight,
+    Clock
 } from 'lucide-react'
 import Link from 'next/link'
 import { firestoreService } from '@/lib/firebase/firestore'
@@ -43,9 +44,17 @@ export default function DashboardPage() {
     })
     const [recentTransactions, setRecentTransactions] = useState<RecentTransaction[]>([])
     const [loading, setLoading] = useState(true)
+    const [currentTime, setCurrentTime] = useState(new Date())
 
     useEffect(() => {
         fetchDashboardData()
+
+        // Live clock update every second
+        const clockInterval = setInterval(() => {
+            setCurrentTime(new Date())
+        }, 1000)
+
+        return () => clearInterval(clockInterval)
     }, [])
 
     const fetchDashboardData = async () => {
@@ -127,6 +136,37 @@ export default function DashboardPage() {
         }
     }
 
+    // Format time with Indonesian timezone
+    const formatTimeWithTimezone = (date: Date) => {
+        const hours = date.getHours().toString().padStart(2, '0')
+        const minutes = date.getMinutes().toString().padStart(2, '0')
+
+        // Get timezone offset in hours
+        const offset = -date.getTimezoneOffset() / 60
+
+        // Determine timezone name based on offset
+        let timezone = 'WIB'
+        if (offset === 8) timezone = 'WITA'
+        else if (offset === 9) timezone = 'WIT'
+        else if (offset === 7) timezone = 'WIB'
+
+        return `${hours}:${minutes} ${timezone}`
+    }
+
+    // Format day and date
+    const formatDayDate = (date: Date) => {
+        const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu']
+        const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+            'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember']
+
+        const dayName = days[date.getDay()]
+        const day = date.getDate()
+        const month = months[date.getMonth()]
+        const year = date.getFullYear()
+
+        return `${dayName}, ${day} ${month} ${year}`
+    }
+
     const getSalesChange = () => {
         if (stats.lastMonthSales === 0) return { value: 0, isUp: true }
         const change = ((stats.monthlySales - stats.lastMonthSales) / stats.lastMonthSales) * 100
@@ -154,10 +194,19 @@ export default function DashboardPage() {
                         Selamat datang kembali, <strong>{user?.name || 'User'}</strong>! 👋
                     </p>
                 </div>
-                <Link href="/pos" className="btn btn-primary">
-                    <ShoppingCart size={18} />
-                    Buka Kasir
-                </Link>
+                <div className={styles.headerRight}>
+                    <div className={styles.clockWidget}>
+                        <div className={styles.clockTime}>
+                            <Clock size={20} />
+                            <span>{formatTimeWithTimezone(currentTime)}</span>
+                        </div>
+                        <div className={styles.clockDate}>{formatDayDate(currentTime)}</div>
+                    </div>
+                    <Link href="/pos" className="btn btn-primary">
+                        <ShoppingCart size={18} />
+                        Buka Kasir
+                    </Link>
+                </div>
             </div>
 
             {/* Stats Grid */}

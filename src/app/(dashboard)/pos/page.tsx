@@ -397,6 +397,19 @@ export default function POSPage() {
     const generateReceiptText = () => {
         if (!lastTransactionData) return ''
 
+        // Format date and time with timezone
+        const now = new Date()
+        const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu']
+        const dayName = days[now.getDay()]
+        const date = now.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' })
+        const hours = now.getHours().toString().padStart(2, '0')
+        const minutes = now.getMinutes().toString().padStart(2, '0')
+        const offset = -now.getTimezoneOffset() / 60
+        let timezone = 'WIB'
+        if (offset === 8) timezone = 'WITA'
+        else if (offset === 9) timezone = 'WIT'
+        const timeStr = `${hours}:${minutes} ${timezone}`
+
         // Store header
         let text = ` *${storeSettings?.name || 'TOKO'}*\n`
         if (storeSettings?.address) {
@@ -408,7 +421,8 @@ export default function POSPage() {
         text += `\n *STRUK PEMBAYARAN*\n`
         text += `━━━━━━━━━━━━━━━━━━\n`
         text += `Invoice: ${lastTransactionData.invoice}\n`
-        text += `Tanggal: ${new Date().toLocaleString('id-ID')}\n`
+        text += `${dayName}, ${date}\n`
+        text += `Jam: ${timeStr}\n`
         text += `━━━━━━━━━━━━━━━━━━\n\n`
 
         lastTransactionData.items.forEach(item => {
@@ -493,6 +507,19 @@ export default function POSPage() {
     const printReceipt = () => {
         if (!lastTransactionData) return
 
+        // Format date and time with timezone
+        const now = new Date()
+        const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu']
+        const dayName = days[now.getDay()]
+        const date = now.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' })
+        const hours = now.getHours().toString().padStart(2, '0')
+        const minutes = now.getMinutes().toString().padStart(2, '0')
+        const offset = -now.getTimezoneOffset() / 60
+        let timezone = 'WIB'
+        if (offset === 8) timezone = 'WITA'
+        else if (offset === 9) timezone = 'WIT'
+        const timeStr = `${hours}:${minutes} ${timezone}`
+
         // Create print content
         const printWindow = window.open('', '_blank', 'width=300,height=600')
         if (!printWindow) {
@@ -525,7 +552,8 @@ export default function POSPage() {
     <div class="center bold">STRUK PEMBAYARAN</div>
     <div class="divider"></div>
     <div>Invoice: ${lastTransactionData.invoice}</div>
-    <div>Tanggal: ${new Date().toLocaleString('id-ID')}</div>
+    <div>${dayName}, ${date}</div>
+    <div>Jam: ${timeStr}</div>
     <div class="divider"></div>
     ${lastTransactionData.items.map(item => `
         <div>${item.name}</div>
