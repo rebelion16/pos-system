@@ -109,6 +109,11 @@ export default function PaymentSettingsPage() {
     }
 
     const saveBank = async () => {
+        if (!storeId) {
+            alert('Sesi toko tidak ditemukan. Silakan refresh halaman.')
+            return
+        }
+
         if (!bankForm.bank_name || !bankForm.account_number || !bankForm.account_holder) {
             alert('Lengkapi semua field!')
             return
@@ -119,7 +124,10 @@ export default function PaymentSettingsPage() {
             if (editingBank) {
                 await firestoreService.updateBankAccount(editingBank.id, bankForm)
             } else {
-                await firestoreService.createBankAccount({ ...bankForm, store_id: storeId! })
+                await firestoreService.createBankAccount({
+                    ...bankForm,
+                    store_id: storeId
+                })
             }
             await fetchData()
             setShowBankModal(false)
@@ -144,7 +152,10 @@ export default function PaymentSettingsPage() {
 
     // QRIS Handlers
     const saveQRIS = async () => {
-        if (!storeId) return
+        if (!storeId) {
+            alert('Sesi toko tidak ditemukan. Silakan refresh halaman.')
+            return
+        }
         setSaving(true)
         try {
             await firestoreService.saveQRISConfig(storeId, qrisConfig)
