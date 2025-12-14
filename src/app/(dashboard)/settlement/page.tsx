@@ -50,58 +50,50 @@ export default function SettlementPage() {
             // Get all transactions
             const transactions = await firestoreService.getTransactions(storeId)
 
+            console.log('=== Settlement Debug ===')
             console.log('Store ID:', storeId)
             console.log('Last settlement:', last)
-            console.log('Total transactions:', transactions.length)
+            console.log('Total transactions from DB:', transactions.length)
+
+            // Show all today's completed transactions
+            const completedTx = transactions.filter(tx => tx.payment_status === 'completed')
+            console.log('Completed transactions:', completedTx.length)
+
+            // Log all transactions for debugging
+            if (transactions.length > 0) {
+                console.log('Sample transaction:', transactions[0])
+                console.log('All transaction dates:', transactions.map(tx => ({
+                    id: tx.id,
+                    created_at: tx.created_at,
+                    status: tx.payment_status,
+                    total: tx.total
+                })))
+            }
 
             // Get today's start and end in local timezone
             const now = new Date()
             const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0)
             const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
 
+            console.log('Now:', now.toISOString(), 'Local:', now.toLocaleString('id-ID'))
             console.log('Today start:', todayStart.toISOString())
             console.log('Today end:', todayEnd.toISOString())
 
-            let filteredTx
-            if (last) {
-                // Check if last settlement was today
-                const settlementDate = new Date(last.settled_at)
-                const isSettlementToday = settlementDate >= todayStart && settlementDate <= todayEnd
+            // Filter today's transactions
+            const todayTx = completedTx.filter(tx => {
+                const txDate = new Date(tx.created_at)
+                const isToday = txDate >= todayStart && txDate <= todayEnd
+                console.log(`TX ${tx.id}: ${tx.created_at} -> ${txDate.toLocaleString('id-ID')} | isToday: ${isToday}`)
+                return isToday
+            })
 
-                console.log('Settlement date:', settlementDate.toISOString())
-                console.log('Is settlement today:', isSettlementToday)
-
-                if (isSettlementToday) {
-                    // Settlement already done today, show transactions after settlement
-                    filteredTx = transactions.filter(tx => {
-                        const txDate = new Date(tx.created_at)
-                        return txDate > settlementDate && tx.payment_status === 'completed'
-                    })
-                } else {
-                    // Last settlement was on a previous day, show today's transactions
-                    filteredTx = transactions.filter(tx => {
-                        const txDate = new Date(tx.created_at)
-                        return txDate >= todayStart && txDate <= todayEnd && tx.payment_status === 'completed'
-                    })
-                }
-            } else {
-                // No settlement yet, show today's transactions
-                filteredTx = transactions.filter(tx => {
-                    const txDate = new Date(tx.created_at)
-                    return txDate >= todayStart && txDate <= todayEnd && tx.payment_status === 'completed'
-                })
-            }
-
-            console.log('Filtered transactions:', filteredTx.length)
-            if (filteredTx.length > 0) {
-                console.log('First transaction:', filteredTx[0])
-            }
+            console.log('Today transactions:', todayTx.length)
 
             let cashSales = 0
             let transferSales = 0
             let qrisSales = 0
 
-            filteredTx.forEach(tx => {
+            todayTx.forEach(tx => {
                 if (tx.payment_method === 'cash') {
                     cashSales += tx.total
                 } else if (tx.payment_method === 'transfer') {
@@ -116,7 +108,7 @@ export default function SettlementPage() {
                 transferSales,
                 qrisSales,
                 totalSales: cashSales + transferSales + qrisSales,
-                transactionCount: filteredTx.length
+                transactionCount: todayTx.length
             })
         } catch (error) {
             console.error('Error fetching sales data:', error)

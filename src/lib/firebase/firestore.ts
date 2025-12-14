@@ -764,20 +764,30 @@ export const firestoreService = {
     // ==================== SETTLEMENTS ====================
     getLastSettlement: async (storeId: string): Promise<{ id: string; settled_at: string; cashier_id?: string; cashier_name?: string } | null> => {
         if (!db) return null
+        // Fetch all settlements for this store and sort client-side to avoid composite index requirement
         const q = query(
             collection(db, COLLECTIONS.settlements),
-            where('store_id', '==', storeId),
-            orderBy('settled_at', 'desc')
+            where('store_id', '==', storeId)
         )
         const snapshot = await getDocs(q)
         if (snapshot.empty) return null
-        const doc = snapshot.docs[0]
-        const data = doc.data()
-        return {
+
+        // Sort by settled_at descending and get the first (most recent)
+        const settlements = snapshot.docs.map(doc => ({
             id: doc.id,
-            settled_at: toISOString(data.settled_at),
-            cashier_id: data.cashier_id,
-            cashier_name: data.cashier_name
+            ...doc.data()
+        })).sort((a, b) => {
+            const dateA = new Date(a.settled_at as string).getTime()
+            const dateB = new Date(b.settled_at as string).getTime()
+            return dateB - dateA
+        })
+
+        const latest = settlements[0]
+        return {
+            id: latest.id,
+            settled_at: latest.settled_at as string,
+            cashier_id: latest.cashier_id as string | undefined,
+            cashier_name: latest.cashier_name as string | undefined
         }
     },
 
