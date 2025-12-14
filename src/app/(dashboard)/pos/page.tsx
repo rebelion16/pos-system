@@ -398,14 +398,14 @@ export default function POSPage() {
         if (!lastTransactionData) return ''
 
         // Store header
-        let text = `🏪 *${storeSettings?.name || 'TOKO'}*\n`
+        let text = ` *${storeSettings?.name || 'TOKO'}*\n`
         if (storeSettings?.address) {
-            text += `📍 ${storeSettings.address}\n`
+            text += ` ${storeSettings.address}\n`
         }
         if (storeSettings?.phone) {
-            text += `📞 ${storeSettings.phone}\n`
+            text += ` ${storeSettings.phone}\n`
         }
-        text += `\n🧾 *STRUK PEMBAYARAN*\n`
+        text += `\n *STRUK PEMBAYARAN*\n`
         text += `━━━━━━━━━━━━━━━━━━\n`
         text += `Invoice: ${lastTransactionData.invoice}\n`
         text += `Tanggal: ${new Date().toLocaleString('id-ID')}\n`
