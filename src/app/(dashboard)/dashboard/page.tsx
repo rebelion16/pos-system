@@ -17,9 +17,11 @@ import styles from './dashboard.module.css'
 interface DashboardStats {
     todaySales: number
     todayTransactions: number
+    todayProfit: number
     totalProducts: number
     lowStockProducts: number
     monthlySales: number
+    monthlyProfit: number
     lastMonthSales: number
 }
 
@@ -36,9 +38,11 @@ export default function DashboardPage() {
     const [stats, setStats] = useState<DashboardStats>({
         todaySales: 0,
         todayTransactions: 0,
+        todayProfit: 0,
         totalProducts: 0,
         lowStockProducts: 0,
         monthlySales: 0,
+        monthlyProfit: 0,
         lastMonthSales: 0,
     })
     const [recentTransactions, setRecentTransactions] = useState<RecentTransaction[]>([])
@@ -53,10 +57,17 @@ export default function DashboardPage() {
         if (!storeId) return
         try {
             // Get data from Firestore
-            const [products, transactions] = await Promise.all([
+            const [products, transactions, transactionItems] = await Promise.all([
                 firestoreService.getProducts(storeId),
-                firestoreService.getTransactions(storeId)
+                firestoreService.getTransactions(storeId),
+                firestoreService.getTransactionItems(storeId)
             ])
+
+            // Create product cost price map for profit calculation
+            const productCostMap = new Map<string, number>()
+            products.forEach(p => {
+                productCostMap.set(p.id, p.cost_price || 0)
+            })
 
             const today = new Date()
             const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate())
@@ -64,23 +75,42 @@ export default function DashboardPage() {
             const startOfLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1)
             const endOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0)
 
-            // Calculate stats
-            const todaySales = transactions
-                .filter(t => {
-                    const txDate = new Date(t.created_at)
-                    return txDate >= startOfDay && t.payment_status === 'completed'
-                })
-                .reduce((sum, t) => sum + Number(t.total), 0)
+            // Get today's transactions
+            const todayTx = transactions.filter(t => {
+                const txDate = new Date(t.created_at)
+                return txDate >= startOfDay && t.payment_status === 'completed'
+            })
 
-            const todayTransactionsCount = transactions
-                .filter(t => {
-                    const txDate = new Date(t.created_at)
-                    return txDate >= startOfDay
-                }).length
+            const todaySales = todayTx.reduce((sum, t) => sum + Number(t.total), 0)
+            const todayTransactionsCount = todayTx.length
 
-            const monthlySales = transactions
-                .filter(t => new Date(t.created_at) >= startOfMonth && t.payment_status === 'completed')
-                .reduce((sum, t) => sum + Number(t.total), 0)
+            // Calculate today's profit
+            const todayTxIds = new Set(todayTx.map(t => t.id))
+            const todayProfit = transactionItems
+                .filter(item => todayTxIds.has(item.transaction_id))
+                .reduce((sum, item) => {
+                    const costPrice = productCostMap.get(item.product_id) || 0
+                    const sellingPrice = item.subtotal / item.quantity
+                    const profit = (sellingPrice - costPrice) * item.quantity
+                    return sum + profit
+                }, 0)
+
+            // Get monthly transactions
+            const monthlyTx = transactions.filter(t =>
+                new Date(t.created_at) >= startOfMonth && t.payment_status === 'completed'
+            )
+            const monthlySales = monthlyTx.reduce((sum, t) => sum + Number(t.total), 0)
+
+            // Calculate monthly profit
+            const monthlyTxIds = new Set(monthlyTx.map(t => t.id))
+            const monthlyProfit = transactionItems
+                .filter(item => monthlyTxIds.has(item.transaction_id))
+                .reduce((sum, item) => {
+                    const costPrice = productCostMap.get(item.product_id) || 0
+                    const sellingPrice = item.subtotal / item.quantity
+                    const profit = (sellingPrice - costPrice) * item.quantity
+                    return sum + profit
+                }, 0)
 
             const lastMonthSales = transactions
                 .filter(t => {
@@ -95,9 +125,11 @@ export default function DashboardPage() {
             setStats({
                 todaySales,
                 todayTransactions: todayTransactionsCount,
+                todayProfit,
                 totalProducts: activeProducts.length,
                 lowStockProducts: lowStockProducts.length,
                 monthlySales,
+                monthlyProfit,
                 lastMonthSales,
             })
 
@@ -187,6 +219,17 @@ export default function DashboardPage() {
                 </div>
 
                 <div className={styles.statCard}>
+                    <div className={styles.statIcon} style={{ background: 'var(--success-50)', color: 'var(--success-700)' }}>
+                        <TrendingUp size={24} />
+                    </div>
+                    <div className={styles.statContent}>
+                        <p className={styles.statLabel}>Keuntungan Hari Ini</p>
+                        <p className={styles.statValue} style={{ color: 'var(--success-600)' }}>{formatCurrency(stats.todayProfit)}</p>
+                        <p className={styles.statSub}>dari {stats.todayTransactions} transaksi</p>
+                    </div>
+                </div>
+
+                <div className={styles.statCard}>
                     <div className={styles.statIcon} style={{ background: 'var(--primary-100)', color: 'var(--primary-600)' }}>
                         <TrendingUp size={24} />
                     </div>
@@ -201,6 +244,17 @@ export default function DashboardPage() {
                 </div>
 
                 <div className={styles.statCard}>
+                    <div className={styles.statIcon} style={{ background: 'var(--success-100)', color: 'var(--success-700)' }}>
+                        <TrendingUp size={24} />
+                    </div>
+                    <div className={styles.statContent}>
+                        <p className={styles.statLabel}>Keuntungan Bulan Ini</p>
+                        <p className={styles.statValue} style={{ color: 'var(--success-600)' }}>{formatCurrency(stats.monthlyProfit)}</p>
+                        <p className={styles.statSub}>total profit bersih</p>
+                    </div>
+                </div>
+
+                <div className={styles.statCard}>
                     <div className={styles.statIcon} style={{ background: 'var(--warning-100)', color: 'var(--warning-600)' }}>
                         <Package size={24} />
                     </div>
@@ -210,19 +264,6 @@ export default function DashboardPage() {
                         {stats.lowStockProducts > 0 && (
                             <p className={styles.statWarning}>⚠️ {stats.lowStockProducts} stok menipis</p>
                         )}
-                    </div>
-                </div>
-
-                <div className={styles.statCard}>
-                    <div className={styles.statIcon} style={{ background: 'var(--gray-100)', color: 'var(--gray-600)' }}>
-                        <Users size={24} />
-                    </div>
-                    <div className={styles.statContent}>
-                        <p className={styles.statLabel}>Role Anda</p>
-                        <p className={styles.statValue} style={{ fontSize: '1.25rem' }}>
-                            {user?.role === 'owner' ? 'Pemilik' : user?.role === 'admin' ? 'Admin' : 'Kasir'}
-                        </p>
-                        <p className={styles.statSub}>{user?.email}</p>
                     </div>
                 </div>
             </div>

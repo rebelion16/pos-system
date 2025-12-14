@@ -264,7 +264,7 @@ export default function ProductsPage() {
                 </select>
             </div>
 
-            {/* Product Grid */}
+            {/* Product Table */}
             {filteredProducts.length === 0 ? (
                 <div className={styles.emptyState}>
                     <Package size={64} className={styles.emptyIcon} />
@@ -276,47 +276,56 @@ export default function ProductsPage() {
                     </Button>
                 </div>
             ) : (
-                <div className={styles.productGrid}>
-                    {filteredProducts.map((product) => (
-                        <div key={product.id} className={styles.productCard}>
-                            <div className={styles.productImage}>
-                                {product.image_url ? (
-                                    <img src={product.image_url} alt={product.name} />
-                                ) : (
-                                    <Package size={40} color="var(--gray-300)" />
-                                )}
-                                {!product.is_active && (
-                                    <span className={styles.inactiveBadge}>Nonaktif</span>
-                                )}
-                            </div>
-                            <div className={styles.productInfo}>
-                                <h4 className={styles.productName}>{product.name}</h4>
-                                {product.category && (
-                                    <span
-                                        className={styles.productCategory}
-                                        style={product.category.color ? {
-                                            backgroundColor: product.category.color + '20',
-                                            color: product.category.color
-                                        } : undefined}
-                                    >
-                                        {product.category.name}
-                                    </span>
-                                )}
-                                <p className={styles.productPrice}>{formatCurrency(product.price)}</p>
-                                <p className={`${styles.productStock} ${product.stock < product.min_stock ? styles.lowStock : ''}`}>
-                                    Stok: {product.stock}
-                                </p>
-                            </div>
-                            <div className={styles.productActions}>
-                                <button className={styles.actionBtn} onClick={() => handleEdit(product)}>
-                                    <Edit size={16} />
-                                </button>
-                                <button className={`${styles.actionBtn} ${styles.deleteBtn}`} onClick={() => handleDelete(product)}>
-                                    <Trash2 size={16} />
-                                </button>
-                            </div>
-                        </div>
-                    ))}
+                <div className={styles.tableContainer}>
+                    <table className={styles.productTable}>
+                        <thead>
+                            <tr>
+                                <th>Nama Produk</th>
+                                <th>Barcode</th>
+                                <th>Stok</th>
+                                <th>Harga</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {filteredProducts.map((product) => (
+                                <tr key={product.id} className={!product.is_active ? styles.inactiveRow : ''}>
+                                    <td>
+                                        <div className={styles.productNameCell}>
+                                            <span className={styles.productName}>{product.name}</span>
+                                            {product.category && (
+                                                <span
+                                                    className={styles.productCategory}
+                                                    style={product.category.color ? {
+                                                        backgroundColor: product.category.color + '20',
+                                                        color: product.category.color
+                                                    } : undefined}
+                                                >
+                                                    {product.category.name}
+                                                </span>
+                                            )}
+                                            {!product.is_active && (
+                                                <span className={styles.inactiveBadge}>Nonaktif</span>
+                                            )}
+                                        </div>
+                                    </td>
+                                    <td className={styles.barcodeCell}>{product.barcode || '-'}</td>
+                                    <td className={`${styles.stockCell} ${product.stock < product.min_stock ? styles.lowStock : ''}`}>
+                                        {product.stock}
+                                    </td>
+                                    <td className={styles.priceCell}>{formatCurrency(product.price)}</td>
+                                    <td className={styles.actionsCell}>
+                                        <button className={styles.actionBtn} onClick={() => handleEdit(product)} title="Edit">
+                                            <Edit size={16} />
+                                        </button>
+                                        <button className={`${styles.actionBtn} ${styles.deleteBtn}`} onClick={() => handleDelete(product)} title="Hapus">
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
                 </div>
             )}
 

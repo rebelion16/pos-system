@@ -84,8 +84,17 @@ export default function ReportsPage() {
             const { start, end } = getDateRange()
 
             // Fetch from Firestore
-            const allTransactions = await firestoreService.getTransactions(storeId)
-            const allItems = await firestoreService.getTransactionItems(storeId)
+            const [allTransactions, allItems, allProducts] = await Promise.all([
+                firestoreService.getTransactions(storeId),
+                firestoreService.getTransactionItems(storeId),
+                firestoreService.getProducts(storeId)
+            ])
+
+            // Create product cost price map for profit calculation
+            const productCostMap = new Map<string, number>()
+            allProducts.forEach(p => {
+                productCostMap.set(p.id, p.cost_price || 0)
+            })
 
             // Filter by date and status
             const filteredTx = allTransactions.filter(tx => {
@@ -111,6 +120,17 @@ export default function ReportsPage() {
             const totalSales = txList.reduce((sum, tx) => sum + Number(tx.total), 0)
             const totalTransactions = txList.length
             const avgTransaction = totalTransactions > 0 ? totalSales / totalTransactions : 0
+
+            // Calculate total profit
+            const txIds = new Set(txList.map(t => t.id))
+            const totalProfit = allItems
+                .filter(item => txIds.has(item.transaction_id))
+                .reduce((sum, item) => {
+                    const costPrice = productCostMap.get(item.product_id) || 0
+                    const sellingPrice = item.subtotal / item.quantity
+                    const profit = (sellingPrice - costPrice) * item.quantity
+                    return sum + profit
+                }, 0)
 
             // Sales by method
             const methodMap = new Map<string, { total: number; count: number }>()
@@ -145,7 +165,7 @@ export default function ReportsPage() {
             setReportData({
                 totalSales,
                 totalTransactions,
-                totalProfit: 0, // Calculate if cost_price is available
+                totalProfit,
                 avgTransaction,
                 salesByMethod,
                 topProducts
@@ -464,6 +484,15 @@ export default function ReportsPage() {
                     <div>
                         <p className={styles.statLabel}>Total Penjualan</p>
                         <p className={styles.statValue}>{formatCurrency(reportData?.totalSales || 0)}</p>
+                    </div>
+                </div>
+                <div className={styles.statCard}>
+                    <div className={styles.statIcon} style={{ background: 'var(--success-50)', color: 'var(--success-700)' }}>
+                        <TrendingUp size={24} />
+                    </div>
+                    <div>
+                        <p className={styles.statLabel}>Total Keuntungan</p>
+                        <p className={styles.statValue} style={{ color: 'var(--success-600)' }}>{formatCurrency(reportData?.totalProfit || 0)}</p>
                     </div>
                 </div>
                 <div className={styles.statCard}>
