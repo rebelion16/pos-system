@@ -17,10 +17,12 @@ import {
     Wifi,
     WifiOff,
     Printer,
-    Scan
+    Scan,
+    Copy,
+    Building2
 } from 'lucide-react'
 import { firestoreService } from '@/lib/firebase/firestore'
-import { Product, Category, ProductWithRelations, PaymentMethod } from '@/types/database'
+import { Product, Category, ProductWithRelations, PaymentMethod, BankAccount, QRISConfig } from '@/types/database'
 import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui'
 import { BarcodeScanner } from '@/components/BarcodeScanner'
@@ -48,6 +50,9 @@ export default function POSPage() {
     const [showScanner, setShowScanner] = useState(false)
     const [scannerConnected, setScannerConnected] = useState(false)
     const [printerConnected, setPrinterConnected] = useState(false)
+    const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([])
+    const [qrisConfig, setQrisConfig] = useState<QRISConfig | null>(null)
+    const [selectedBank, setSelectedBank] = useState<string>('')
     const searchRef = useRef<HTMLInputElement>(null)
     const barcodeBufferRef = useRef('')
     const barcodeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -55,12 +60,29 @@ export default function POSPage() {
     useEffect(() => {
         fetchProducts()
         fetchCategories()
+        fetchPaymentSettings()
 
         // Focus search on mount
         if (searchRef.current) {
             searchRef.current.focus()
         }
     }, [])
+
+    const fetchPaymentSettings = async () => {
+        try {
+            const [accounts, qris] = await Promise.all([
+                firestoreService.getBankAccounts(),
+                firestoreService.getQRISConfig(),
+            ])
+            setBankAccounts(accounts.filter(a => a.is_active))
+            setQrisConfig(qris)
+            if (accounts.length > 0) {
+                setSelectedBank(accounts[0].id)
+            }
+        } catch (err) {
+            console.log('[POS] Payment settings not configured:', err)
+        }
+    }
 
     const fetchProducts = async () => {
         try {
@@ -631,21 +653,70 @@ export default function POSPage() {
 
                             {paymentMethod === 'qris' && (
                                 <div className={styles.qrisSection}>
-                                    <div className={styles.qrisPlaceholder}>
-                                        <QrCode size={120} />
-                                        <p>QRIS akan ditampilkan di sini</p>
-                                        <span>Silakan konfigurasikan integrasi QRIS</span>
-                                    </div>
+                                    {qrisConfig?.enabled && qrisConfig.qris_static_code ? (
+                                        <div className={styles.qrisContent}>
+                                            <img
+                                                src={qrisConfig.qris_static_code}
+                                                alt="QRIS"
+                                                className={styles.qrisImage}
+                                            />
+                                            <div className={styles.qrisMerchant}>
+                                                <strong>{qrisConfig.merchant_name || 'Merchant'}</strong>
+                                                <span>Scan untuk membayar {formatCurrency(calculateTotal())}</span>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className={styles.qrisPlaceholder}>
+                                            <QrCode size={80} />
+                                            <p>QRIS belum dikonfigurasi</p>
+                                            <span>Atur QRIS di menu Pengaturan → Pembayaran</span>
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
                             {paymentMethod === 'transfer' && (
                                 <div className={styles.transferSection}>
-                                    <div className={styles.transferInfo}>
-                                        <CreditCard size={40} />
-                                        <p>Transfer ke rekening toko</p>
-                                        <span>Konfirmasi pembayaran dengan pelanggan</span>
-                                    </div>
+                                    {bankAccounts.length > 0 ? (
+                                        <div className={styles.bankList}>
+                                            {bankAccounts.map((bank) => (
+                                                <div
+                                                    key={bank.id}
+                                                    className={`${styles.bankCard} ${selectedBank === bank.id ? styles.bankCardActive : ''}`}
+                                                    onClick={() => setSelectedBank(bank.id)}
+                                                >
+                                                    <div className={styles.bankIcon}>
+                                                        <Building2 size={24} />
+                                                    </div>
+                                                    <div className={styles.bankDetails}>
+                                                        <strong>{bank.bank_name}</strong>
+                                                        <span className={styles.bankNumber}>{bank.account_number}</span>
+                                                        <span className={styles.bankHolder}>a.n. {bank.account_holder}</span>
+                                                    </div>
+                                                    <button
+                                                        className={styles.copyBtn}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation()
+                                                            navigator.clipboard.writeText(bank.account_number)
+                                                            alert('Nomor rekening disalin!')
+                                                        }}
+                                                        title="Salin nomor rekening"
+                                                    >
+                                                        <Copy size={16} />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                            <p className={styles.transferNote}>
+                                                Total: <strong>{formatCurrency(calculateTotal())}</strong>
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <div className={styles.transferInfo}>
+                                            <CreditCard size={40} />
+                                            <p>Rekening bank belum dikonfigurasi</p>
+                                            <span>Tambah rekening di menu Pengaturan → Pembayaran</span>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
