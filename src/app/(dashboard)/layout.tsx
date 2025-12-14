@@ -32,7 +32,8 @@ const navigation = [
     { name: 'Stok', href: '/stock', icon: Warehouse, roles: ['owner', 'admin'] },
     { name: 'Supplier', href: '/suppliers', icon: Truck, roles: ['owner', 'admin'] },
     { name: 'Transaksi', href: '/transactions', icon: FileText, roles: ['owner', 'admin', 'cashier'] },
-    { name: 'Laporan', href: '/reports', icon: FileText, roles: ['owner', 'admin'] },
+    { name: 'Laporan', href: '/reports', icon: FileText, roles: ['owner', 'admin', 'cashier'] },
+    { name: 'Settlement', href: '/settlement', icon: FileText, roles: ['owner', 'admin', 'cashier'] },
     { name: 'Pengguna', href: '/users', icon: Users, roles: ['owner', 'admin'] },
     { name: 'Pengaturan', href: '/settings', icon: Settings, roles: ['owner', 'admin'] },
 ]
@@ -135,24 +136,26 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
         }
     }
 
-    // Format time with timezone
+    // Format time with timezone (including seconds)
     const formatTimeWithTimezone = (date: Date) => {
         const hours = date.getHours().toString().padStart(2, '0')
         const minutes = date.getMinutes().toString().padStart(2, '0')
+        const seconds = date.getSeconds().toString().padStart(2, '0')
         const offset = -date.getTimezoneOffset() / 60
         let timezone = 'WIB'
         if (offset === 8) timezone = 'WITA'
         else if (offset === 9) timezone = 'WIT'
-        return `${hours}:${minutes} ${timezone}`
+        return `${hours}:${minutes}:${seconds} ${timezone}`
     }
 
-    // Format day and date
+    // Format day and date (full day name, dd/mm/yyyy)
     const formatDayDate = (date: Date) => {
-        const days = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab']
+        const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu']
         const dayName = days[date.getDay()]
-        const day = date.getDate()
+        const day = date.getDate().toString().padStart(2, '0')
         const month = (date.getMonth() + 1).toString().padStart(2, '0')
-        return `${dayName}, ${day}/${month}`
+        const year = date.getFullYear()
+        return `${dayName}, ${day}/${month}/${year}`
     }
 
     return (

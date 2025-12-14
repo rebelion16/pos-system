@@ -244,6 +244,46 @@ export default function DashboardPage() {
                     </div>
                 </div>
 
+                {/* Sales Comparison Chart */}
+                <div className={styles.card}>
+                    <h3 className={styles.cardTitle}>Perbandingan Penjualan</h3>
+                    <div className={styles.chartContainer}>
+                        <div className={styles.chartBar}>
+                            <div className={styles.chartLabel}>Bulan Ini</div>
+                            <div className={styles.chartBarBg}>
+                                <div
+                                    className={styles.chartBarFill}
+                                    style={{
+                                        width: `${Math.min(100, stats.lastMonthSales > 0 ? (stats.monthlySales / Math.max(stats.monthlySales, stats.lastMonthSales)) * 100 : 100)}%`,
+                                        background: 'var(--primary-500)'
+                                    }}
+                                />
+                            </div>
+                            <div className={styles.chartValue}>{formatCurrency(stats.monthlySales)}</div>
+                        </div>
+                        <div className={styles.chartBar}>
+                            <div className={styles.chartLabel}>Bulan Lalu</div>
+                            <div className={styles.chartBarBg}>
+                                <div
+                                    className={styles.chartBarFill}
+                                    style={{
+                                        width: `${Math.min(100, stats.monthlySales > 0 ? (stats.lastMonthSales / Math.max(stats.monthlySales, stats.lastMonthSales)) * 100 : (stats.lastMonthSales > 0 ? 100 : 0))}%`,
+                                        background: 'var(--gray-400)'
+                                    }}
+                                />
+                            </div>
+                            <div className={styles.chartValue}>{formatCurrency(stats.lastMonthSales)}</div>
+                        </div>
+                        <div className={styles.chartSummary}>
+                            {salesChange.isUp ? (
+                                <span className={styles.chartUp}>↑ +{salesChange.value}% dari bulan lalu</span>
+                            ) : (
+                                <span className={styles.chartDown}>↓ -{salesChange.value}% dari bulan lalu</span>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
                 {/* Recent Transactions */}
                 <div className={styles.card}>
                     <div className={styles.cardHeader}>

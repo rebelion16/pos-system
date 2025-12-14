@@ -898,8 +898,23 @@ export default function POSPage() {
 
     const quickAmounts = [10000, 20000, 50000, 100000]
 
+    // Get low stock products
+    const lowStockProducts = products.filter(p => p.stock > 0 && p.stock <= 5)
+
     return (
         <div className={styles.container}>
+            {/* Low Stock Alert Banner */}
+            {lowStockProducts.length > 0 && (
+                <div className={styles.lowStockBanner}>
+                    <span className={styles.lowStockIcon}>⚠️</span>
+                    <div className={styles.lowStockMarquee}>
+                        <span className={styles.lowStockText}>
+                            STOK MENIPIS: {lowStockProducts.map(p => `${p.name} (${p.stock})`).join(' • ')}
+                        </span>
+                    </div>
+                </div>
+            )}
+
             {/* Products Section */}
             <div className={styles.productsSection}>
                 {/* Search & Filters */}
@@ -965,7 +980,7 @@ export default function POSPage() {
                     ))}
                 </div>
 
-                {/* Product Grid */}
+                {/* Product List (Simple) */}
                 {loading ? (
                     <div className={styles.loading}>
                         <div className="spinner spinner-lg"></div>
@@ -976,28 +991,27 @@ export default function POSPage() {
                         <p>Tidak ada produk ditemukan</p>
                     </div>
                 ) : (
-                    <div className={styles.productGrid}>
+                    <div className={styles.productList}>
                         {filteredProducts.map((product) => {
                             const inCart = cart.find(item => item.product.id === product.id)
+                            const isLowStock = product.stock <= 5
                             return (
                                 <button
                                     key={product.id}
-                                    className={`${styles.productCard} ${inCart ? styles.productInCart : ''}`}
+                                    className={`${styles.productItem} ${inCart ? styles.productInCart : ''} ${isLowStock ? styles.productLowStock : ''}`}
                                     onClick={() => addToCart(product)}
+                                    disabled={product.stock <= 0}
                                 >
-                                    <div className={styles.productImage}>
-                                        {product.image_url ? (
-                                            <img src={product.image_url} alt={product.name} />
-                                        ) : (
-                                            <Package size={32} color="var(--gray-300)" />
-                                        )}
+                                    <div className={styles.productItemInfo}>
+                                        <span className={styles.productItemName}>{product.name}</span>
+                                        <span className={styles.productItemStock}>Stok: {product.stock}</span>
+                                    </div>
+                                    <div className={styles.productItemRight}>
+                                        <span className={styles.productItemPrice}>{formatCurrency(product.price)}</span>
                                         {inCart && (
-                                            <span className={styles.cartBadge}>{inCart.quantity}</span>
+                                            <span className={styles.productItemQty}>{inCart.quantity}</span>
                                         )}
                                     </div>
-                                    <div className={styles.productName}>{product.name}</div>
-                                    <div className={styles.productPrice}>{formatCurrency(product.price)}</div>
-                                    <div className={styles.productStock}>Stok: {product.stock}</div>
                                 </button>
                             )
                         })}
@@ -1074,282 +1088,290 @@ export default function POSPage() {
             </div>
 
             {/* Payment Modal */}
-            {showPayment && (
-                <div className="modal-overlay" onClick={() => setShowPayment(false)}>
-                    <div className={styles.paymentModal} onClick={(e) => e.stopPropagation()}>
-                        <div className={styles.paymentHeader}>
-                            <h3>Pembayaran</h3>
-                            <button className={styles.closeModal} onClick={() => setShowPayment(false)}>
-                                <X size={20} />
-                            </button>
-                        </div>
-
-                        <div className={styles.paymentBody}>
-                            <div className={styles.paymentTotal}>
-                                <span>Total Pembayaran</span>
-                                <span className={styles.paymentAmount}>{formatCurrency(calculateTotal())}</span>
+            {
+                showPayment && (
+                    <div className="modal-overlay" onClick={() => setShowPayment(false)}>
+                        <div className={styles.paymentModal} onClick={(e) => e.stopPropagation()}>
+                            <div className={styles.paymentHeader}>
+                                <h3>Pembayaran</h3>
+                                <button className={styles.closeModal} onClick={() => setShowPayment(false)}>
+                                    <X size={20} />
+                                </button>
                             </div>
 
-                            <div className={styles.paymentMethods}>
-                                <p className={styles.paymentLabel}>Metode Pembayaran</p>
-                                <div className={styles.methodGrid}>
-                                    <button
-                                        className={`${styles.methodBtn} ${paymentMethod === 'cash' ? styles.methodActive : ''}`}
-                                        onClick={() => setPaymentMethod('cash')}
-                                    >
-                                        <Banknote size={24} />
-                                        <span>Tunai</span>
-                                    </button>
-                                    <button
-                                        className={`${styles.methodBtn} ${paymentMethod === 'transfer' ? styles.methodActive : ''}`}
-                                        onClick={() => setPaymentMethod('transfer')}
-                                    >
-                                        <CreditCard size={24} />
-                                        <span>Transfer</span>
-                                    </button>
-                                    <button
-                                        className={`${styles.methodBtn} ${paymentMethod === 'qris' ? styles.methodActive : ''}`}
-                                        onClick={() => setPaymentMethod('qris')}
-                                    >
-                                        <QrCode size={24} />
-                                        <span>QRIS</span>
-                                    </button>
+                            <div className={styles.paymentBody}>
+                                <div className={styles.paymentTotal}>
+                                    <span>Total Pembayaran</span>
+                                    <span className={styles.paymentAmount}>{formatCurrency(calculateTotal())}</span>
                                 </div>
-                            </div>
 
-                            {paymentMethod === 'cash' && (
-                                <div className={styles.cashSection}>
-                                    <p className={styles.paymentLabel}>Uang Diterima</p>
-                                    <input
-                                        type="number"
-                                        value={cashReceived}
-                                        onChange={(e) => setCashReceived(e.target.value)}
-                                        placeholder="0"
-                                        className={styles.cashInput}
-                                        autoFocus
-                                    />
-                                    <div className={styles.quickAmounts}>
-                                        {quickAmounts.map((amount) => (
-                                            <button
-                                                key={amount}
-                                                className={styles.quickAmountBtn}
-                                                onClick={() => setCashReceived(amount.toString())}
-                                            >
-                                                {formatCurrency(amount)}
-                                            </button>
-                                        ))}
+                                <div className={styles.paymentMethods}>
+                                    <p className={styles.paymentLabel}>Metode Pembayaran</p>
+                                    <div className={styles.methodGrid}>
                                         <button
-                                            className={styles.quickAmountBtn}
-                                            onClick={() => setCashReceived(calculateTotal().toString())}
+                                            className={`${styles.methodBtn} ${paymentMethod === 'cash' ? styles.methodActive : ''}`}
+                                            onClick={() => setPaymentMethod('cash')}
                                         >
-                                            Uang Pas
+                                            <Banknote size={24} />
+                                            <span>Tunai</span>
+                                        </button>
+                                        <button
+                                            className={`${styles.methodBtn} ${paymentMethod === 'transfer' ? styles.methodActive : ''}`}
+                                            onClick={() => setPaymentMethod('transfer')}
+                                        >
+                                            <CreditCard size={24} />
+                                            <span>Transfer</span>
+                                        </button>
+                                        <button
+                                            className={`${styles.methodBtn} ${paymentMethod === 'qris' ? styles.methodActive : ''}`}
+                                            onClick={() => setPaymentMethod('qris')}
+                                        >
+                                            <QrCode size={24} />
+                                            <span>QRIS</span>
                                         </button>
                                     </div>
-                                    {parseFloat(cashReceived) > 0 && (
-                                        <div className={styles.changeInfo}>
-                                            <span>Kembalian</span>
-                                            <span className={calculateChange() >= 0 ? styles.changePositive : styles.changeNegative}>
-                                                {formatCurrency(Math.max(0, calculateChange()))}
-                                            </span>
-                                        </div>
-                                    )}
                                 </div>
-                            )}
 
-                            {paymentMethod === 'qris' && (
-                                <div className={styles.qrisSection}>
-                                    {qrisConfig?.enabled && qrisConfig.qris_static_code ? (
-                                        <div className={styles.qrisContent}>
-                                            <img
-                                                src={qrisConfig.qris_static_code}
-                                                alt="QRIS"
-                                                className={styles.qrisImage}
-                                            />
-                                            <div className={styles.qrisMerchant}>
-                                                <strong>{qrisConfig.merchant_name || 'Merchant'}</strong>
-                                                <span>Scan untuk membayar {formatCurrency(calculateTotal())}</span>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div className={styles.qrisPlaceholder}>
-                                            <QrCode size={80} />
-                                            <p>QRIS belum dikonfigurasi</p>
-                                            <span>Atur QRIS di menu Pengaturan → Pembayaran</span>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-                            {paymentMethod === 'transfer' && (
-                                <div className={styles.transferSection}>
-                                    {bankAccounts.length > 0 ? (
-                                        <div className={styles.bankList}>
-                                            {bankAccounts.map((bank) => (
-                                                <div
-                                                    key={bank.id}
-                                                    className={`${styles.bankCard} ${selectedBank === bank.id ? styles.bankCardActive : ''}`}
-                                                    onClick={() => setSelectedBank(bank.id)}
+                                {paymentMethod === 'cash' && (
+                                    <div className={styles.cashSection}>
+                                        <p className={styles.paymentLabel}>Uang Diterima</p>
+                                        <input
+                                            type="number"
+                                            value={cashReceived}
+                                            onChange={(e) => setCashReceived(e.target.value)}
+                                            placeholder="0"
+                                            className={styles.cashInput}
+                                            autoFocus
+                                        />
+                                        <div className={styles.quickAmounts}>
+                                            {quickAmounts.map((amount) => (
+                                                <button
+                                                    key={amount}
+                                                    className={styles.quickAmountBtn}
+                                                    onClick={() => setCashReceived(amount.toString())}
                                                 >
-                                                    <div className={styles.bankIcon}>
-                                                        <Building2 size={24} />
-                                                    </div>
-                                                    <div className={styles.bankDetails}>
-                                                        <strong>{bank.bank_name}</strong>
-                                                        <span className={styles.bankNumber}>{bank.account_number}</span>
-                                                        <span className={styles.bankHolder}>a.n. {bank.account_holder}</span>
-                                                    </div>
-                                                    <button
-                                                        className={styles.copyBtn}
-                                                        onClick={(e) => {
-                                                            e.stopPropagation()
-                                                            navigator.clipboard.writeText(bank.account_number)
-                                                            alert('Nomor rekening disalin!')
-                                                        }}
-                                                        title="Salin nomor rekening"
-                                                    >
-                                                        <Copy size={16} />
-                                                    </button>
-                                                </div>
+                                                    {formatCurrency(amount)}
+                                                </button>
                                             ))}
-                                            <p className={styles.transferNote}>
-                                                Total: <strong>{formatCurrency(calculateTotal())}</strong>
-                                            </p>
+                                            <button
+                                                className={styles.quickAmountBtn}
+                                                onClick={() => setCashReceived(calculateTotal().toString())}
+                                            >
+                                                Uang Pas
+                                            </button>
                                         </div>
-                                    ) : (
-                                        <div className={styles.transferInfo}>
-                                            <CreditCard size={40} />
-                                            <p>Rekening bank belum dikonfigurasi</p>
-                                            <span>Tambah rekening di menu Pengaturan → Pembayaran</span>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                        </div>
+                                        {parseFloat(cashReceived) > 0 && (
+                                            <div className={styles.changeInfo}>
+                                                <span>Kembalian</span>
+                                                <span className={calculateChange() >= 0 ? styles.changePositive : styles.changeNegative}>
+                                                    {formatCurrency(Math.max(0, calculateChange()))}
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
 
-                        <div className={styles.paymentFooter}>
-                            <Button variant="secondary" onClick={() => setShowPayment(false)}>
-                                Batal
-                            </Button>
-                            <Button
-                                onClick={handlePayment}
-                                loading={processing}
-                                disabled={paymentMethod === 'cash' && calculateChange() < 0}
-                            >
-                                <Check size={18} />
-                                Konfirmasi Pembayaran
-                            </Button>
+                                {paymentMethod === 'qris' && (
+                                    <div className={styles.qrisSection}>
+                                        {qrisConfig?.enabled && qrisConfig.qris_static_code ? (
+                                            <div className={styles.qrisContent}>
+                                                <img
+                                                    src={qrisConfig.qris_static_code}
+                                                    alt="QRIS"
+                                                    className={styles.qrisImage}
+                                                />
+                                                <div className={styles.qrisMerchant}>
+                                                    <strong>{qrisConfig.merchant_name || 'Merchant'}</strong>
+                                                    <span>Scan untuk membayar {formatCurrency(calculateTotal())}</span>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className={styles.qrisPlaceholder}>
+                                                <QrCode size={80} />
+                                                <p>QRIS belum dikonfigurasi</p>
+                                                <span>Atur QRIS di menu Pengaturan → Pembayaran</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {paymentMethod === 'transfer' && (
+                                    <div className={styles.transferSection}>
+                                        {bankAccounts.length > 0 ? (
+                                            <div className={styles.bankList}>
+                                                {bankAccounts.map((bank) => (
+                                                    <div
+                                                        key={bank.id}
+                                                        className={`${styles.bankCard} ${selectedBank === bank.id ? styles.bankCardActive : ''}`}
+                                                        onClick={() => setSelectedBank(bank.id)}
+                                                    >
+                                                        <div className={styles.bankIcon}>
+                                                            <Building2 size={24} />
+                                                        </div>
+                                                        <div className={styles.bankDetails}>
+                                                            <strong>{bank.bank_name}</strong>
+                                                            <span className={styles.bankNumber}>{bank.account_number}</span>
+                                                            <span className={styles.bankHolder}>a.n. {bank.account_holder}</span>
+                                                        </div>
+                                                        <button
+                                                            className={styles.copyBtn}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation()
+                                                                navigator.clipboard.writeText(bank.account_number)
+                                                                alert('Nomor rekening disalin!')
+                                                            }}
+                                                            title="Salin nomor rekening"
+                                                        >
+                                                            <Copy size={16} />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                                <p className={styles.transferNote}>
+                                                    Total: <strong>{formatCurrency(calculateTotal())}</strong>
+                                                </p>
+                                            </div>
+                                        ) : (
+                                            <div className={styles.transferInfo}>
+                                                <CreditCard size={40} />
+                                                <p>Rekening bank belum dikonfigurasi</p>
+                                                <span>Tambah rekening di menu Pengaturan → Pembayaran</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className={styles.paymentFooter}>
+                                <Button variant="secondary" onClick={() => setShowPayment(false)}>
+                                    Batal
+                                </Button>
+                                <Button
+                                    onClick={handlePayment}
+                                    loading={processing}
+                                    disabled={paymentMethod === 'cash' && calculateChange() < 0}
+                                >
+                                    <Check size={18} />
+                                    Konfirmasi Pembayaran
+                                </Button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Receipt Selection Modal */}
-            {showReceiptModal && (
-                <div className="modal-overlay">
-                    <div className={styles.receiptModal}>
-                        <div className={styles.receiptModalHeader}>
-                            <FileText size={24} />
-                            <div>
-                                <h3>Pembayaran Berhasil!</h3>
-                                <p>Invoice: {lastInvoice}</p>
-                            </div>
-                        </div>
-
-                        <div className={styles.receiptModalBody}>
-                            <p className={styles.receiptLabel}>Pilih jenis struk:</p>
-
-                            <div className={styles.receiptOptions}>
-                                <button
-                                    className={`${styles.receiptOption} ${receiptType === 'print' ? styles.receiptOptionActive : ''}`}
-                                    onClick={() => setReceiptType('print')}
-                                >
-                                    <Printer size={28} />
-                                    <span>Cetak Fisik</span>
-                                </button>
-                                <button
-                                    className={`${styles.receiptOption} ${receiptType === 'whatsapp' ? styles.receiptOptionActive : ''}`}
-                                    onClick={() => setReceiptType('whatsapp')}
-                                >
-                                    <Phone size={28} />
-                                    <span>WhatsApp</span>
-                                </button>
-                                <button
-                                    className={`${styles.receiptOption} ${receiptType === 'telegram' ? styles.receiptOptionActive : ''}`}
-                                    onClick={() => setReceiptType('telegram')}
-                                >
-                                    <MessageCircle size={28} />
-                                    <span>Telegram</span>
-                                </button>
-                            </div>
-
-                            {(receiptType === 'whatsapp' || receiptType === 'telegram') && (
-                                <div className={styles.receiptContactInput}>
-                                    <label>
-                                        {receiptType === 'whatsapp'
-                                            ? 'Nomor WhatsApp Customer'
-                                            : 'Nomor HP / Username Telegram Customer'}
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={receiptContact}
-                                        onChange={(e) => setReceiptContact(e.target.value)}
-                                        placeholder={receiptType === 'whatsapp' ? '08123456789' : '08123456789 atau @username'}
-                                        autoFocus
-                                    />
+            {
+                showReceiptModal && (
+                    <div className="modal-overlay">
+                        <div className={styles.receiptModal}>
+                            <div className={styles.receiptModalHeader}>
+                                <FileText size={24} />
+                                <div>
+                                    <h3>Pembayaran Berhasil!</h3>
+                                    <p>Invoice: {lastInvoice}</p>
                                 </div>
-                            )}
-                        </div>
+                            </div>
 
-                        <div className={styles.receiptModalFooter}>
-                            <Button variant="secondary" onClick={skipReceipt}>
-                                Lewati
-                            </Button>
-                            {receiptType === 'print' && (
-                                <Button variant="primary" onClick={printReceipt}>
-                                    <Printer size={18} />
-                                    Cetak Struk
+                            <div className={styles.receiptModalBody}>
+                                <p className={styles.receiptLabel}>Pilih jenis struk:</p>
+
+                                <div className={styles.receiptOptions}>
+                                    <button
+                                        className={`${styles.receiptOption} ${receiptType === 'print' ? styles.receiptOptionActive : ''}`}
+                                        onClick={() => setReceiptType('print')}
+                                    >
+                                        <Printer size={28} />
+                                        <span>Cetak Fisik</span>
+                                    </button>
+                                    <button
+                                        className={`${styles.receiptOption} ${receiptType === 'whatsapp' ? styles.receiptOptionActive : ''}`}
+                                        onClick={() => setReceiptType('whatsapp')}
+                                    >
+                                        <Phone size={28} />
+                                        <span>WhatsApp</span>
+                                    </button>
+                                    <button
+                                        className={`${styles.receiptOption} ${receiptType === 'telegram' ? styles.receiptOptionActive : ''}`}
+                                        onClick={() => setReceiptType('telegram')}
+                                    >
+                                        <MessageCircle size={28} />
+                                        <span>Telegram</span>
+                                    </button>
+                                </div>
+
+                                {(receiptType === 'whatsapp' || receiptType === 'telegram') && (
+                                    <div className={styles.receiptContactInput}>
+                                        <label>
+                                            {receiptType === 'whatsapp'
+                                                ? 'Nomor WhatsApp Customer'
+                                                : 'Nomor HP / Username Telegram Customer'}
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={receiptContact}
+                                            onChange={(e) => setReceiptContact(e.target.value)}
+                                            placeholder={receiptType === 'whatsapp' ? '08123456789' : '08123456789 atau @username'}
+                                            autoFocus
+                                        />
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className={styles.receiptModalFooter}>
+                                <Button variant="secondary" onClick={skipReceipt}>
+                                    Lewati
                                 </Button>
-                            )}
-                            {(receiptType === 'whatsapp' || receiptType === 'telegram') && (
-                                <Button
-                                    variant="primary"
-                                    onClick={sendReceipt}
-                                    loading={sendingReceipt}
-                                    disabled={!receiptContact.trim()}
-                                >
-                                    <Send size={18} />
-                                    Kirim Struk
-                                </Button>
-                            )}
-                            {receiptType === 'none' && (
-                                <Button variant="primary" onClick={skipReceipt}>
-                                    <Check size={18} />
-                                    Selesai
-                                </Button>
-                            )}
+                                {receiptType === 'print' && (
+                                    <Button variant="primary" onClick={printReceipt}>
+                                        <Printer size={18} />
+                                        Cetak Struk
+                                    </Button>
+                                )}
+                                {(receiptType === 'whatsapp' || receiptType === 'telegram') && (
+                                    <Button
+                                        variant="primary"
+                                        onClick={sendReceipt}
+                                        loading={sendingReceipt}
+                                        disabled={!receiptContact.trim()}
+                                    >
+                                        <Send size={18} />
+                                        Kirim Struk
+                                    </Button>
+                                )}
+                                {receiptType === 'none' && (
+                                    <Button variant="primary" onClick={skipReceipt}>
+                                        <Check size={18} />
+                                        Selesai
+                                    </Button>
+                                )}
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Success Toast */}
-            {showSuccess && (
-                <div className={styles.successToast}>
-                    <Check size={24} />
-                    <div>
-                        <p>Pembayaran Berhasil!</p>
-                        <span>Invoice: {lastInvoice}</span>
+            {
+                showSuccess && (
+                    <div className={styles.successToast}>
+                        <Check size={24} />
+                        <div>
+                            <p>Pembayaran Berhasil!</p>
+                            <span>Invoice: {lastInvoice}</span>
+                        </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Camera Barcode Scanner */}
-            {showScanner && (
-                <BarcodeScanner
-                    onScan={handleBarcodeScan}
-                    onClose={() => setShowScanner(false)}
-                />
-            )}
-        </div>
+            {
+                showScanner && (
+                    <BarcodeScanner
+                        onScan={handleBarcodeScan}
+                        onClose={() => setShowScanner(false)}
+                    />
+                )
+            }
+        </div >
     )
 }
