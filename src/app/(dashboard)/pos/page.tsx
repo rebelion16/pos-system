@@ -70,6 +70,11 @@ export default function POSPage() {
         paymentMethod: PaymentMethod
         change?: number
     } | null>(null)
+    const [storeSettings, setStoreSettings] = useState<{
+        name: string
+        phone: string | null
+        address: string | null
+    } | null>(null)
     const searchRef = useRef<HTMLInputElement>(null)
     const barcodeBufferRef = useRef('')
     const barcodeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -87,14 +92,22 @@ export default function POSPage() {
 
     const fetchPaymentSettings = async () => {
         try {
-            const [accounts, qris] = await Promise.all([
+            const [accounts, qris, settings] = await Promise.all([
                 firestoreService.getBankAccounts(),
                 firestoreService.getQRISConfig(),
+                firestoreService.getSettings(),
             ])
             setBankAccounts(accounts.filter(a => a.is_active))
             setQrisConfig(qris)
             if (accounts.length > 0) {
                 setSelectedBank(accounts[0].id)
+            }
+            if (settings) {
+                setStoreSettings({
+                    name: settings.store_name || 'Toko',
+                    phone: settings.store_phone,
+                    address: settings.store_address,
+                })
             }
         } catch (err) {
             console.log('[POS] Payment settings not configured:', err)
@@ -384,7 +397,15 @@ export default function POSPage() {
     const generateReceiptText = () => {
         if (!lastTransactionData) return ''
 
-        let text = `🧾 *STRUK PEMBAYARAN*\n`
+        // Store header
+        let text = `🏪 *${storeSettings?.name || 'TOKO'}*\n`
+        if (storeSettings?.address) {
+            text += `📍 ${storeSettings.address}\n`
+        }
+        if (storeSettings?.phone) {
+            text += `📞 ${storeSettings.phone}\n`
+        }
+        text += `\n🧾 *STRUK PEMBAYARAN*\n`
         text += `━━━━━━━━━━━━━━━━━━\n`
         text += `Invoice: ${lastTransactionData.invoice}\n`
         text += `Tanggal: ${new Date().toLocaleString('id-ID')}\n`
@@ -476,9 +497,15 @@ export default function POSPage() {
         .item { display: flex; justify-content: space-between; }
         .item-detail { font-size: 10px; color: #666; }
         .total { font-size: 14px; font-weight: bold; margin: 8px 0; }
+        .store-name { font-size: 16px; font-weight: bold; margin-bottom: 4px; }
+        .store-info { font-size: 10px; color: #666; }
     </style>
 </head>
 <body>
+    <div class="center store-name">${storeSettings?.name || 'TOKO'}</div>
+    ${storeSettings?.address ? `<div class="center store-info">${storeSettings.address}</div>` : ''}
+    ${storeSettings?.phone ? `<div class="center store-info">Telp: ${storeSettings.phone}</div>` : ''}
+    <div class="divider"></div>
     <div class="center bold">STRUK PEMBAYARAN</div>
     <div class="divider"></div>
     <div>Invoice: ${lastTransactionData.invoice}</div>
