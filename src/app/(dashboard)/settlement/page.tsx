@@ -54,39 +54,48 @@ export default function SettlementPage() {
             console.log('Last settlement:', last)
             console.log('Total transactions:', transactions.length)
 
-            // Get today's date at midnight for comparison
-            const today = new Date()
-            today.setHours(0, 0, 0, 0)
-            const todayStr = today.toISOString().split('T')[0]
+            // Get today's start and end in local timezone
+            const now = new Date()
+            const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0)
+            const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
+
+            console.log('Today start:', todayStart.toISOString())
+            console.log('Today end:', todayEnd.toISOString())
 
             let filteredTx
             if (last) {
                 // Check if last settlement was today
                 const settlementDate = new Date(last.settled_at)
-                const isSettlementToday = last.settled_at.startsWith(todayStr)
+                const isSettlementToday = settlementDate >= todayStart && settlementDate <= todayEnd
+
+                console.log('Settlement date:', settlementDate.toISOString())
+                console.log('Is settlement today:', isSettlementToday)
 
                 if (isSettlementToday) {
                     // Settlement already done today, show transactions after settlement
-                    filteredTx = transactions.filter(tx =>
-                        new Date(tx.created_at) > settlementDate &&
-                        tx.payment_status === 'completed'
-                    )
+                    filteredTx = transactions.filter(tx => {
+                        const txDate = new Date(tx.created_at)
+                        return txDate > settlementDate && tx.payment_status === 'completed'
+                    })
                 } else {
                     // Last settlement was on a previous day, show today's transactions
-                    filteredTx = transactions.filter(tx =>
-                        tx.created_at.startsWith(todayStr) &&
-                        tx.payment_status === 'completed'
-                    )
+                    filteredTx = transactions.filter(tx => {
+                        const txDate = new Date(tx.created_at)
+                        return txDate >= todayStart && txDate <= todayEnd && tx.payment_status === 'completed'
+                    })
                 }
             } else {
                 // No settlement yet, show today's transactions
-                filteredTx = transactions.filter(tx =>
-                    tx.created_at.startsWith(todayStr) &&
-                    tx.payment_status === 'completed'
-                )
+                filteredTx = transactions.filter(tx => {
+                    const txDate = new Date(tx.created_at)
+                    return txDate >= todayStart && txDate <= todayEnd && tx.payment_status === 'completed'
+                })
             }
 
             console.log('Filtered transactions:', filteredTx.length)
+            if (filteredTx.length > 0) {
+                console.log('First transaction:', filteredTx[0])
+            }
 
             let cashSales = 0
             let transferSales = 0
