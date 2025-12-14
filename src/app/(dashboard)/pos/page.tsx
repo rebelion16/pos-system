@@ -915,176 +915,179 @@ export default function POSPage() {
                 </div>
             )}
 
-            {/* Products Section */}
-            <div className={styles.productsSection}>
-                {/* Search & Filters */}
-                <div className={styles.searchBar}>
-                    <div className={styles.searchBox}>
-                        <Search size={18} className={styles.searchIcon} />
-                        <input
-                            ref={searchRef}
-                            type="text"
-                            placeholder="Cari produk atau scan barcode (4 digit terakhir)..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className={styles.searchInput}
-                        />
-                        {searchQuery && (
+            {/* Main Content - Products on left, Cart on right */}
+            <div className={styles.mainContent}>
+                {/* Products Section */}
+                <div className={styles.productsSection}>
+                    {/* Search & Filters */}
+                    <div className={styles.searchBar}>
+                        <div className={styles.searchBox}>
+                            <Search size={18} className={styles.searchIcon} />
+                            <input
+                                ref={searchRef}
+                                type="text"
+                                placeholder="Cari produk atau scan barcode (4 digit terakhir)..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className={styles.searchInput}
+                            />
+                            {searchQuery && (
+                                <button
+                                    className={styles.clearSearch}
+                                    onClick={() => setSearchQuery('')}
+                                >
+                                    <X size={16} />
+                                </button>
+                            )}
+                        </div>
+                        <button
+                            className={styles.scanButton}
+                            onClick={() => setShowScanner(true)}
+                            title="Scan Barcode dengan Kamera"
+                        >
+                            <Camera size={20} />
+                        </button>
+                        {/* Device Status Indicators */}
+                        <div className={styles.deviceStatus}>
+                            <div className={`${styles.statusIndicator} ${scannerConnected ? styles.statusConnected : ''}`} title={scannerConnected ? 'Scanner USB Terhubung' : 'Scanner USB Tidak Terdeteksi'}>
+                                <Scan size={16} />
+                            </div>
+                            <div className={`${styles.statusIndicator} ${printerConnected ? styles.statusConnected : ''}`} title={printerConnected ? 'Printer Terhubung (USB/Bluetooth)' : 'Printer Tidak Terdeteksi'}>
+                                <Printer size={16} />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Category Tabs */}
+                    <div className={styles.categoryTabs}>
+                        <button
+                            className={`${styles.categoryTab} ${!selectedCategory ? styles.categoryTabActive : ''}`}
+                            onClick={() => setSelectedCategory('')}
+                        >
+                            Semua
+                        </button>
+                        {categories.map((cat) => (
                             <button
-                                className={styles.clearSearch}
-                                onClick={() => setSearchQuery('')}
+                                key={cat.id}
+                                className={`${styles.categoryTab} ${selectedCategory === cat.id ? styles.categoryTabActive : ''}`}
+                                onClick={() => setSelectedCategory(cat.id)}
+                                style={selectedCategory === cat.id && cat.color ? {
+                                    backgroundColor: cat.color + '20',
+                                    color: cat.color,
+                                    borderColor: cat.color
+                                } : undefined}
                             >
-                                <X size={16} />
+                                {cat.name}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Product List (Simple) */}
+                    {loading ? (
+                        <div className={styles.loading}>
+                            <div className="spinner spinner-lg"></div>
+                        </div>
+                    ) : filteredProducts.length === 0 ? (
+                        <div className={styles.emptyProducts}>
+                            <Package size={48} />
+                            <p>Tidak ada produk ditemukan</p>
+                        </div>
+                    ) : (
+                        <div className={styles.productList}>
+                            {filteredProducts.map((product) => {
+                                const inCart = cart.find(item => item.product.id === product.id)
+                                const isLowStock = product.stock <= 5
+                                return (
+                                    <button
+                                        key={product.id}
+                                        className={`${styles.productItem} ${inCart ? styles.productInCart : ''} ${isLowStock ? styles.productLowStock : ''}`}
+                                        onClick={() => addToCart(product)}
+                                        disabled={product.stock <= 0}
+                                    >
+                                        <div className={styles.productItemInfo}>
+                                            <span className={styles.productItemName}>{product.name}</span>
+                                            <span className={styles.productItemStock}>Stok: {product.stock}</span>
+                                        </div>
+                                        <div className={styles.productItemRight}>
+                                            <span className={styles.productItemPrice}>{formatCurrency(product.price)}</span>
+                                            {inCart && (
+                                                <span className={styles.productItemQty}>{inCart.quantity}</span>
+                                            )}
+                                        </div>
+                                    </button>
+                                )
+                            })}
+                        </div>
+                    )}
+                </div>
+
+                {/* Cart Section */}
+                <div className={styles.cartSection}>
+                    <div className={styles.cartHeader}>
+                        <ShoppingCart size={20} />
+                        <h2>Keranjang</h2>
+                        {cart.length > 0 && (
+                            <button className={styles.clearCartBtn} onClick={clearCart}>
+                                Hapus Semua
                             </button>
                         )}
                     </div>
-                    <button
-                        className={styles.scanButton}
-                        onClick={() => setShowScanner(true)}
-                        title="Scan Barcode dengan Kamera"
-                    >
-                        <Camera size={20} />
-                    </button>
-                    {/* Device Status Indicators */}
-                    <div className={styles.deviceStatus}>
-                        <div className={`${styles.statusIndicator} ${scannerConnected ? styles.statusConnected : ''}`} title={scannerConnected ? 'Scanner USB Terhubung' : 'Scanner USB Tidak Terdeteksi'}>
-                            <Scan size={16} />
-                        </div>
-                        <div className={`${styles.statusIndicator} ${printerConnected ? styles.statusConnected : ''}`} title={printerConnected ? 'Printer Terhubung (USB/Bluetooth)' : 'Printer Tidak Terdeteksi'}>
-                            <Printer size={16} />
-                        </div>
-                    </div>
-                </div>
 
-                {/* Category Tabs */}
-                <div className={styles.categoryTabs}>
-                    <button
-                        className={`${styles.categoryTab} ${!selectedCategory ? styles.categoryTabActive : ''}`}
-                        onClick={() => setSelectedCategory('')}
-                    >
-                        Semua
-                    </button>
-                    {categories.map((cat) => (
-                        <button
-                            key={cat.id}
-                            className={`${styles.categoryTab} ${selectedCategory === cat.id ? styles.categoryTabActive : ''}`}
-                            onClick={() => setSelectedCategory(cat.id)}
-                            style={selectedCategory === cat.id && cat.color ? {
-                                backgroundColor: cat.color + '20',
-                                color: cat.color,
-                                borderColor: cat.color
-                            } : undefined}
-                        >
-                            {cat.name}
-                        </button>
-                    ))}
-                </div>
-
-                {/* Product List (Simple) */}
-                {loading ? (
-                    <div className={styles.loading}>
-                        <div className="spinner spinner-lg"></div>
-                    </div>
-                ) : filteredProducts.length === 0 ? (
-                    <div className={styles.emptyProducts}>
-                        <Package size={48} />
-                        <p>Tidak ada produk ditemukan</p>
-                    </div>
-                ) : (
-                    <div className={styles.productList}>
-                        {filteredProducts.map((product) => {
-                            const inCart = cart.find(item => item.product.id === product.id)
-                            const isLowStock = product.stock <= 5
-                            return (
-                                <button
-                                    key={product.id}
-                                    className={`${styles.productItem} ${inCart ? styles.productInCart : ''} ${isLowStock ? styles.productLowStock : ''}`}
-                                    onClick={() => addToCart(product)}
-                                    disabled={product.stock <= 0}
-                                >
-                                    <div className={styles.productItemInfo}>
-                                        <span className={styles.productItemName}>{product.name}</span>
-                                        <span className={styles.productItemStock}>Stok: {product.stock}</span>
-                                    </div>
-                                    <div className={styles.productItemRight}>
-                                        <span className={styles.productItemPrice}>{formatCurrency(product.price)}</span>
-                                        {inCart && (
-                                            <span className={styles.productItemQty}>{inCart.quantity}</span>
-                                        )}
-                                    </div>
-                                </button>
-                            )
-                        })}
-                    </div>
-                )}
-            </div>
-
-            {/* Cart Section */}
-            <div className={styles.cartSection}>
-                <div className={styles.cartHeader}>
-                    <ShoppingCart size={20} />
-                    <h2>Keranjang</h2>
-                    {cart.length > 0 && (
-                        <button className={styles.clearCartBtn} onClick={clearCart}>
-                            Hapus Semua
-                        </button>
-                    )}
-                </div>
-
-                <div className={styles.cartItems}>
-                    {cart.length === 0 ? (
-                        <div className={styles.emptyCart}>
-                            <ShoppingCart size={40} />
-                            <p>Keranjang kosong</p>
-                            <span>Pilih produk untuk menambahkan</span>
-                        </div>
-                    ) : (
-                        cart.map((item) => (
-                            <div key={item.product.id} className={styles.cartItem}>
-                                <div className={styles.cartItemInfo}>
-                                    <p className={styles.cartItemName}>{item.product.name}</p>
-                                    <p className={styles.cartItemPrice}>{formatCurrency(item.product.price)}</p>
-                                </div>
-                                <div className={styles.cartItemActions}>
-                                    <div className={styles.quantityControl}>
-                                        <button onClick={() => updateQuantity(item.product.id, -1)}>
-                                            <Minus size={14} />
-                                        </button>
-                                        <span>{item.quantity}</span>
-                                        <button onClick={() => updateQuantity(item.product.id, 1)}>
-                                            <Plus size={14} />
-                                        </button>
-                                    </div>
-                                    <p className={styles.cartItemSubtotal}>
-                                        {formatCurrency(item.product.price * item.quantity)}
-                                    </p>
-                                    <button
-                                        className={styles.removeBtn}
-                                        onClick={() => removeFromCart(item.product.id)}
-                                    >
-                                        <Trash2 size={16} />
-                                    </button>
-                                </div>
+                    <div className={styles.cartItems}>
+                        {cart.length === 0 ? (
+                            <div className={styles.emptyCart}>
+                                <ShoppingCart size={40} />
+                                <p>Keranjang kosong</p>
+                                <span>Pilih produk untuk menambahkan</span>
                             </div>
-                        ))
+                        ) : (
+                            cart.map((item) => (
+                                <div key={item.product.id} className={styles.cartItem}>
+                                    <div className={styles.cartItemInfo}>
+                                        <p className={styles.cartItemName}>{item.product.name}</p>
+                                        <p className={styles.cartItemPrice}>{formatCurrency(item.product.price)}</p>
+                                    </div>
+                                    <div className={styles.cartItemActions}>
+                                        <div className={styles.quantityControl}>
+                                            <button onClick={() => updateQuantity(item.product.id, -1)}>
+                                                <Minus size={14} />
+                                            </button>
+                                            <span>{item.quantity}</span>
+                                            <button onClick={() => updateQuantity(item.product.id, 1)}>
+                                                <Plus size={14} />
+                                            </button>
+                                        </div>
+                                        <p className={styles.cartItemSubtotal}>
+                                            {formatCurrency(item.product.price * item.quantity)}
+                                        </p>
+                                        <button
+                                            className={styles.removeBtn}
+                                            onClick={() => removeFromCart(item.product.id)}
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+
+                    {cart.length > 0 && (
+                        <div className={styles.cartFooter}>
+                            <div className={styles.cartTotal}>
+                                <span>Total</span>
+                                <span className={styles.totalAmount}>{formatCurrency(calculateTotal())}</span>
+                            </div>
+                            <Button
+                                className={styles.payButton}
+                                onClick={() => setShowPayment(true)}
+                            >
+                                <CreditCard size={20} />
+                                Bayar Sekarang
+                            </Button>
+                        </div>
                     )}
                 </div>
-
-                {cart.length > 0 && (
-                    <div className={styles.cartFooter}>
-                        <div className={styles.cartTotal}>
-                            <span>Total</span>
-                            <span className={styles.totalAmount}>{formatCurrency(calculateTotal())}</span>
-                        </div>
-                        <Button
-                            className={styles.payButton}
-                            onClick={() => setShowPayment(true)}
-                        >
-                            <CreditCard size={20} />
-                            Bayar Sekarang
-                        </Button>
-                    </div>
-                )}
             </div>
 
             {/* Payment Modal */}
