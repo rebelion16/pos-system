@@ -873,3 +873,151 @@
         max-height: 95vh;
     }
 }
+
+/* Receipt Selection Modal */
+.receiptModal {
+    background: var(--surface);
+    border-radius: var(--radius-xl);
+    width: 100%;
+    max-width: 420px;
+    box-shadow: var(--shadow-xl);
+    animation: slideUp 0.25s ease-out;
+}
+
+.receiptModalHeader {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.5rem;
+    background: linear-gradient(135deg, var(--success-500), var(--success-600));
+    color: white;
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+}
+
+.receiptModalHeader svg {
+    flex-shrink: 0;
+}
+
+.receiptModalHeader h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-bottom: 0.125rem;
+}
+
+.receiptModalHeader p {
+    font-size: 0.875rem;
+    opacity: 0.9;
+}
+
+.receiptModalBody {
+    padding: 1.5rem;
+}
+
+.receiptLabel {
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: 1rem;
+}
+
+.receiptOptions {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+}
+
+.receiptOption {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 1.25rem 0.5rem;
+    border: 2px solid var(--border);
+    background: var(--surface);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.receiptOption:hover {
+    border-color: var(--primary-300);
+    background: var(--primary-50);
+}
+
+.receiptOption svg {
+    color: var(--text-secondary);
+}
+
+.receiptOption span {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.receiptOptionActive {
+    border-color: var(--primary-500);
+    background: var(--primary-50);
+}
+
+.receiptOptionActive svg {
+    color: var(--primary-600);
+}
+
+.receiptOptionActive span {
+    color: var(--primary-600);
+}
+
+.receiptContactInput {
+    margin-top: 1.25rem;
+    animation: fadeIn 0.2s ease-out;
+}
+
+.receiptContactInput label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+}
+
+.receiptContactInput input {
+    width: 100%;
+    padding: 0.875rem 1rem;
+    font-size: 1rem;
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--text-primary);
+    transition: border-color 0.2s;
+}
+
+.receiptContactInput input:focus {
+    outline: none;
+    border-color: var(--primary-500);
+}
+
+.receiptContactInput input::placeholder {
+    color: var(--text-muted);
+}
+
+.receiptModalFooter {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    padding: 1rem 1.5rem;
+    background: var(--gray-50);
+    border-top: 1px solid var(--border);
+    border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

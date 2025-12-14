@@ -19,7 +19,11 @@ import {
     Printer,
     Scan,
     Copy,
-    Building2
+    Building2,
+    Phone,
+    Send,
+    FileText,
+    MessageCircle
 } from 'lucide-react'
 import { firestoreService } from '@/lib/firebase/firestore'
 import { Product, Category, ProductWithRelations, PaymentMethod, BankAccount, QRISConfig } from '@/types/database'
@@ -27,6 +31,8 @@ import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui'
 import { BarcodeScanner } from '@/components/BarcodeScanner'
 import styles from './pos.module.css'
+
+type ReceiptType = 'none' | 'print' | 'whatsapp' | 'telegram'
 
 interface CartItem {
     product: Product
@@ -53,6 +59,17 @@ export default function POSPage() {
     const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([])
     const [qrisConfig, setQrisConfig] = useState<QRISConfig | null>(null)
     const [selectedBank, setSelectedBank] = useState<string>('')
+    const [showReceiptModal, setShowReceiptModal] = useState(false)
+    const [receiptType, setReceiptType] = useState<ReceiptType>('none')
+    const [receiptContact, setReceiptContact] = useState('')
+    const [sendingReceipt, setSendingReceipt] = useState(false)
+    const [lastTransactionData, setLastTransactionData] = useState<{
+        invoice: string
+        items: { name: string; qty: number; price: number; subtotal: number }[]
+        total: number
+        paymentMethod: PaymentMethod
+        change?: number
+    } | null>(null)
     const searchRef = useRef<HTMLInputElement>(null)
     const barcodeBufferRef = useRef('')
     const barcodeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -327,28 +344,174 @@ export default function POSPage() {
                 payment_status: 'completed',
                 cash_received: paymentMethod === 'cash' ? parseFloat(cashReceived) || calculateTotal() : null,
                 change_amount: paymentMethod === 'cash' ? calculateChange() : null,
-                bank_account_id: null,
+                bank_account_id: paymentMethod === 'transfer' ? selectedBank : null,
                 qris_reference: null,
                 notes: null,
             }, items)
 
-            // Success
+            // Save transaction data for receipt
+            setLastTransactionData({
+                invoice: invoiceNumber,
+                items: cart.map(item => ({
+                    name: item.product.name,
+                    qty: item.quantity,
+                    price: item.product.price,
+                    subtotal: item.product.price * item.quantity,
+                })),
+                total: calculateTotal(),
+                paymentMethod: paymentMethod,
+                change: paymentMethod === 'cash' ? calculateChange() : undefined,
+            })
+
+            // Success - show receipt selection
             setLastInvoice(invoiceNumber)
             setShowPayment(false)
-            setShowSuccess(true)
+            setShowReceiptModal(true)
+            setReceiptType('none')
+            setReceiptContact('')
             clearCart()
             setCashReceived('')
             fetchProducts() // Refresh stock
-
-            setTimeout(() => {
-                setShowSuccess(false)
-            }, 3000)
         } catch (error) {
             console.error('Error processing payment:', error)
             alert('Gagal memproses pembayaran')
         } finally {
             setProcessing(false)
         }
+    }
+
+    // Generate receipt text for digital sharing
+    const generateReceiptText = () => {
+        if (!lastTransactionData) return ''
+
+        let text = `🧾 *STRUK PEMBAYARAN*\n`
+        text += `━━━━━━━━━━━━━━━━━━\n`
+        text += `Invoice: ${lastTransactionData.invoice}\n`
+        text += `Tanggal: ${new Date().toLocaleString('id-ID')}\n`
+        text += `━━━━━━━━━━━━━━━━━━\n\n`
+
+        lastTransactionData.items.forEach(item => {
+            text += `${item.name}\n`
+            text += `  ${item.qty} x ${formatCurrency(item.price)} = ${formatCurrency(item.subtotal)}\n`
+        })
+
+        text += `\n━━━━━━━━━━━━━━━━━━\n`
+        text += `*TOTAL: ${formatCurrency(lastTransactionData.total)}*\n`
+
+        if (lastTransactionData.change !== undefined && lastTransactionData.change > 0) {
+            text += `Kembalian: ${formatCurrency(lastTransactionData.change)}\n`
+        }
+
+        text += `Metode: ${lastTransactionData.paymentMethod.toUpperCase()}\n`
+        text += `━━━━━━━━━━━━━━━━━━\n`
+        text += `Terima kasih atas kunjungan Anda!`
+
+        return text
+    }
+
+    // Send receipt via WhatsApp or Telegram
+    const sendReceipt = async () => {
+        if (!receiptContact.trim()) {
+            alert('Masukkan nomor WhatsApp atau username Telegram!')
+            return
+        }
+
+        setSendingReceipt(true)
+        const receiptText = generateReceiptText()
+
+        try {
+            if (receiptType === 'whatsapp') {
+                // Format phone number
+                let phone = receiptContact.replace(/\D/g, '')
+                if (phone.startsWith('0')) {
+                    phone = '62' + phone.slice(1)
+                }
+                if (!phone.startsWith('62')) {
+                    phone = '62' + phone
+                }
+
+                // Open WhatsApp Web
+                const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(receiptText)}`
+                window.open(waUrl, '_blank')
+            } else if (receiptType === 'telegram') {
+                // Open Telegram
+                let username = receiptContact.replace('@', '')
+                const tgUrl = `https://t.me/${username}?text=${encodeURIComponent(receiptText)}`
+                window.open(tgUrl, '_blank')
+            }
+
+            // Show success and close modal
+            setShowReceiptModal(false)
+            setShowSuccess(true)
+            setTimeout(() => setShowSuccess(false), 3000)
+        } catch (error) {
+            console.error('Error sending receipt:', error)
+            alert('Gagal mengirim struk')
+        } finally {
+            setSendingReceipt(false)
+        }
+    }
+
+    // Print receipt
+    const printReceipt = () => {
+        if (!lastTransactionData) return
+
+        // Create print content
+        const printWindow = window.open('', '_blank', 'width=300,height=600')
+        if (!printWindow) {
+            alert('Popup diblokir. Izinkan popup untuk mencetak struk.')
+            return
+        }
+
+        const printContent = `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Struk - ${lastTransactionData.invoice}</title>
+    <style>
+        body { font-family: 'Courier New', monospace; font-size: 12px; width: 280px; margin: 0 auto; padding: 10px; }
+        .center { text-align: center; }
+        .bold { font-weight: bold; }
+        .divider { border-top: 1px dashed #000; margin: 8px 0; }
+        .item { display: flex; justify-content: space-between; }
+        .item-detail { font-size: 10px; color: #666; }
+        .total { font-size: 14px; font-weight: bold; margin: 8px 0; }
+    </style>
+</head>
+<body>
+    <div class="center bold">STRUK PEMBAYARAN</div>
+    <div class="divider"></div>
+    <div>Invoice: ${lastTransactionData.invoice}</div>
+    <div>Tanggal: ${new Date().toLocaleString('id-ID')}</div>
+    <div class="divider"></div>
+    ${lastTransactionData.items.map(item => `
+        <div>${item.name}</div>
+        <div class="item-detail">${item.qty} x ${formatCurrency(item.price)} = ${formatCurrency(item.subtotal)}</div>
+    `).join('')}
+    <div class="divider"></div>
+    <div class="total item"><span>TOTAL</span><span>${formatCurrency(lastTransactionData.total)}</span></div>
+    ${lastTransactionData.change !== undefined && lastTransactionData.change > 0 ? `<div class="item"><span>Kembalian</span><span>${formatCurrency(lastTransactionData.change)}</span></div>` : ''}
+    <div>Metode: ${lastTransactionData.paymentMethod.toUpperCase()}</div>
+    <div class="divider"></div>
+    <div class="center">Terima kasih!</div>
+    <script>window.onload = function() { window.print(); }</script>
+</body>
+</html>`
+
+        printWindow.document.write(printContent)
+        printWindow.document.close()
+
+        // Close modal
+        setShowReceiptModal(false)
+        setShowSuccess(true)
+        setTimeout(() => setShowSuccess(false), 3000)
+    }
+
+    // Skip receipt
+    const skipReceipt = () => {
+        setShowReceiptModal(false)
+        setShowSuccess(true)
+        setTimeout(() => setShowSuccess(false), 3000)
     }
 
     // Enhanced search logic - matches name, SKU, full barcode, or last 4 digits of barcode
@@ -733,6 +896,93 @@ export default function POSPage() {
                                 <Check size={18} />
                                 Konfirmasi Pembayaran
                             </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Receipt Selection Modal */}
+            {showReceiptModal && (
+                <div className="modal-overlay">
+                    <div className={styles.receiptModal}>
+                        <div className={styles.receiptModalHeader}>
+                            <FileText size={24} />
+                            <div>
+                                <h3>Pembayaran Berhasil!</h3>
+                                <p>Invoice: {lastInvoice}</p>
+                            </div>
+                        </div>
+
+                        <div className={styles.receiptModalBody}>
+                            <p className={styles.receiptLabel}>Pilih jenis struk:</p>
+
+                            <div className={styles.receiptOptions}>
+                                <button
+                                    className={`${styles.receiptOption} ${receiptType === 'print' ? styles.receiptOptionActive : ''}`}
+                                    onClick={() => setReceiptType('print')}
+                                >
+                                    <Printer size={28} />
+                                    <span>Cetak Fisik</span>
+                                </button>
+                                <button
+                                    className={`${styles.receiptOption} ${receiptType === 'whatsapp' ? styles.receiptOptionActive : ''}`}
+                                    onClick={() => setReceiptType('whatsapp')}
+                                >
+                                    <Phone size={28} />
+                                    <span>WhatsApp</span>
+                                </button>
+                                <button
+                                    className={`${styles.receiptOption} ${receiptType === 'telegram' ? styles.receiptOptionActive : ''}`}
+                                    onClick={() => setReceiptType('telegram')}
+                                >
+                                    <MessageCircle size={28} />
+                                    <span>Telegram</span>
+                                </button>
+                            </div>
+
+                            {(receiptType === 'whatsapp' || receiptType === 'telegram') && (
+                                <div className={styles.receiptContactInput}>
+                                    <label>
+                                        {receiptType === 'whatsapp' ? 'Nomor WhatsApp Customer' : 'Username Telegram Customer'}
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={receiptContact}
+                                        onChange={(e) => setReceiptContact(e.target.value)}
+                                        placeholder={receiptType === 'whatsapp' ? '08123456789' : '@username'}
+                                        autoFocus
+                                    />
+                                </div>
+                            )}
+                        </div>
+
+                        <div className={styles.receiptModalFooter}>
+                            <Button variant="secondary" onClick={skipReceipt}>
+                                Lewati
+                            </Button>
+                            {receiptType === 'print' && (
+                                <Button variant="primary" onClick={printReceipt}>
+                                    <Printer size={18} />
+                                    Cetak Struk
+                                </Button>
+                            )}
+                            {(receiptType === 'whatsapp' || receiptType === 'telegram') && (
+                                <Button
+                                    variant="primary"
+                                    onClick={sendReceipt}
+                                    loading={sendingReceipt}
+                                    disabled={!receiptContact.trim()}
+                                >
+                                    <Send size={18} />
+                                    Kirim Struk
+                                </Button>
+                            )}
+                            {receiptType === 'none' && (
+                                <Button variant="primary" onClick={skipReceipt}>
+                                    <Check size={18} />
+                                    Selesai
+                                </Button>
+                            )}
                         </div>
                     </div>
                 </div>
