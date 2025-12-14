@@ -255,14 +255,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 return { error: new Error('Username, password, atau kode toko salah') }
             }
 
-            // Store cashier session
-            sessionStorage.setItem(CASHIER_SESSION_KEY, JSON.stringify({
-                id: cashier.id,
-                name: cashier.name,
-                username: cashier.username,
-                storeCode: cashier.store_code
-            }))
-
             // Set user state
             // Find the store owner by store code to get store_id
             let storeId = ''
@@ -282,6 +274,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (!storeId) {
                 return { error: new Error('Data toko tidak ditemukan untuk kode ini') }
             }
+
+            // Store cashier session WITH storeId for proper restoration
+            sessionStorage.setItem(CASHIER_SESSION_KEY, JSON.stringify({
+                id: cashier.id,
+                name: cashier.name,
+                username: cashier.username,
+                storeCode: cashier.store_code,
+                storeId: storeId  // Store storeId so it can be restored properly
+            }))
 
             setUser({
                 id: cashier.id,
