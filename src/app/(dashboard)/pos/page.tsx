@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import {
     Search,
     ShoppingCart,
@@ -12,12 +12,18 @@ import {
     QrCode,
     X,
     Check,
-    Package
+    Package,
+    Camera,
+    Wifi,
+    WifiOff,
+    Printer,
+    Scan
 } from 'lucide-react'
 import { firestoreService } from '@/lib/firebase/firestore'
 import { Product, Category, ProductWithRelations, PaymentMethod } from '@/types/database'
 import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui'
+import { BarcodeScanner } from '@/components/BarcodeScanner'
 import styles from './pos.module.css'
 
 interface CartItem {
@@ -39,7 +45,12 @@ export default function POSPage() {
     const [processing, setProcessing] = useState(false)
     const [showSuccess, setShowSuccess] = useState(false)
     const [lastInvoice, setLastInvoice] = useState('')
+    const [showScanner, setShowScanner] = useState(false)
+    const [scannerConnected, setScannerConnected] = useState(false)
+    const [printerConnected, setPrinterConnected] = useState(false)
     const searchRef = useRef<HTMLInputElement>(null)
+    const barcodeBufferRef = useRef('')
+    const barcodeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
     useEffect(() => {
         fetchProducts()
@@ -67,6 +78,95 @@ export default function POSPage() {
         const data = await firestoreService.getCategories()
         setCategories(data)
     }
+
+    // Function to find product by barcode and add to cart
+    const findAndAddByBarcode = useCallback((barcode: string) => {
+        const product = products.find(p =>
+            p.barcode === barcode ||
+            p.barcode?.endsWith(barcode) ||
+            (barcode.length >= 4 && p.barcode?.slice(-4) === barcode.slice(-4))
+        )
+        if (product) {
+            addToCart(product)
+            setSearchQuery('')
+            return true
+        }
+        return false
+    }, [products])
+
+    // USB Barcode Scanner Detection
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            // Ignore if typing in input fields (except for Enter)
+            if (e.target instanceof HTMLInputElement && e.key !== 'Enter') {
+                return
+            }
+
+            // Handle Enter key for USB scanner
+            if (e.key === 'Enter' && barcodeBufferRef.current.length > 3) {
+                e.preventDefault()
+                const barcode = barcodeBufferRef.current.trim()
+                console.log('[Scanner] Detected barcode:', barcode)
+                setScannerConnected(true)
+                findAndAddByBarcode(barcode)
+                barcodeBufferRef.current = ''
+                return
+            }
+
+            // Collect barcode characters (from USB scanner)
+            if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
+                // If active element is not search input, it's likely from scanner
+                if (document.activeElement !== searchRef.current) {
+                    barcodeBufferRef.current += e.key
+                    setScannerConnected(true)
+
+                    // Clear buffer after 100ms of no input (end of scan)
+                    if (barcodeTimeoutRef.current) {
+                        clearTimeout(barcodeTimeoutRef.current)
+                    }
+                    barcodeTimeoutRef.current = setTimeout(() => {
+                        if (barcodeBufferRef.current.length > 3) {
+                            console.log('[Scanner] Buffer timeout, detected:', barcodeBufferRef.current)
+                            findAndAddByBarcode(barcodeBufferRef.current.trim())
+                        }
+                        barcodeBufferRef.current = ''
+                    }, 100)
+                }
+            }
+        }
+
+        window.addEventListener('keydown', handleKeyDown)
+        return () => window.removeEventListener('keydown', handleKeyDown)
+    }, [findAndAddByBarcode])
+
+    // Check Bluetooth Printer
+    useEffect(() => {
+        const checkBluetoothPrinter = async () => {
+            try {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const nav = navigator as any
+                if (nav.bluetooth) {
+                    // Check if Web Bluetooth is available
+                    const available = await nav.bluetooth.getAvailability?.()
+                    if (available) {
+                        // Try to get previously paired devices
+                        const devices = await nav.bluetooth.getDevices?.()
+                        if (devices && devices.length > 0) {
+                            const printer = devices.find((d: { name?: string }) =>
+                                d.name?.toLowerCase().includes('print') ||
+                                d.name?.toLowerCase().includes('pos') ||
+                                d.name?.toLowerCase().includes('receipt')
+                            )
+                            setPrinterConnected(!!printer)
+                        }
+                    }
+                }
+            } catch (err) {
+                console.log('[Bluetooth] Not available or permission denied')
+            }
+        }
+        checkBluetoothPrinter()
+    }, [])
 
     const addToCart = (product: Product) => {
         setCart(prev => {
@@ -188,13 +288,35 @@ export default function POSPage() {
         }
     }
 
+    // Enhanced search logic - matches name, SKU, full barcode, or last 4 digits of barcode
     const filteredProducts = products.filter(product => {
-        const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            product.sku?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            product.barcode?.includes(searchQuery)
+        const query = searchQuery.toLowerCase().trim()
+        if (!query) return !selectedCategory || product.category_id === selectedCategory
+
+        const matchesName = product.name.toLowerCase().includes(query)
+        const matchesSku = product.sku?.toLowerCase().includes(query)
+        const matchesFullBarcode = product.barcode?.includes(searchQuery)
+        // Match last 4 digits of barcode
+        const matchesLast4Barcode = query.length >= 4 && product.barcode?.slice(-4) === query.slice(-4)
+        // Also try if search query matches last N digits
+        const matchesBarcodeEnd = product.barcode?.endsWith(searchQuery)
+
+        const matchesSearch = matchesName || matchesSku || matchesFullBarcode || matchesLast4Barcode || matchesBarcodeEnd
         const matchesCategory = !selectedCategory || product.category_id === selectedCategory
         return matchesSearch && matchesCategory
     })
+
+    // Handle camera barcode scan
+    const handleBarcodeScan = (barcode: string) => {
+        console.log('[Camera] Scanned barcode:', barcode)
+        setShowScanner(false)
+
+        // Try to find and add product
+        if (!findAndAddByBarcode(barcode)) {
+            // If not found, set search query
+            setSearchQuery(barcode)
+        }
+    }
 
     const quickAmounts = [10000, 20000, 50000, 100000]
 
@@ -209,7 +331,7 @@ export default function POSPage() {
                         <input
                             ref={searchRef}
                             type="text"
-                            placeholder="Cari produk atau scan barcode..."
+                            placeholder="Cari produk atau scan barcode (4 digit terakhir)..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className={styles.searchInput}
@@ -222,6 +344,22 @@ export default function POSPage() {
                                 <X size={16} />
                             </button>
                         )}
+                    </div>
+                    <button
+                        className={styles.scanButton}
+                        onClick={() => setShowScanner(true)}
+                        title="Scan Barcode dengan Kamera"
+                    >
+                        <Camera size={20} />
+                    </button>
+                    {/* Device Status Indicators */}
+                    <div className={styles.deviceStatus}>
+                        <div className={`${styles.statusIndicator} ${scannerConnected ? styles.statusConnected : ''}`} title={scannerConnected ? 'Scanner USB Terhubung' : 'Scanner USB Tidak Terdeteksi'}>
+                            <Scan size={16} />
+                        </div>
+                        <div className={`${styles.statusIndicator} ${printerConnected ? styles.statusConnected : ''}`} title={printerConnected ? 'Printer Bluetooth Terhubung' : 'Printer Tidak Terdeteksi'}>
+                            <Printer size={16} />
+                        </div>
                     </div>
                 </div>
 
@@ -487,6 +625,14 @@ export default function POSPage() {
                         <span>Invoice: {lastInvoice}</span>
                     </div>
                 </div>
+            )}
+
+            {/* Camera Barcode Scanner */}
+            {showScanner && (
+                <BarcodeScanner
+                    onScan={handleBarcodeScan}
+                    onClose={() => setShowScanner(false)}
+                />
             )}
         </div>
     )

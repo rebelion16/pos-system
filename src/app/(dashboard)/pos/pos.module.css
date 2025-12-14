@@ -14,11 +14,15 @@
 }
 
 .searchBar {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
     margin-bottom: 1rem;
 }
 
 .searchBox {
     position: relative;
+    flex: 1;
 }
 
 .searchIcon {
@@ -63,6 +67,56 @@
 
 .clearSearch:hover {
     background: var(--gray-300);
+}
+
+/* Scan Button */
+.scanButton {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border: 2px solid var(--primary-500);
+    background: var(--primary-50);
+    color: var(--primary-600);
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.scanButton:hover {
+    background: var(--primary-100);
+    border-color: var(--primary-600);
+    transform: scale(1.05);
+}
+
+.scanButton:active {
+    transform: scale(0.95);
+}
+
+/* Device Status Indicators */
+.deviceStatus {
+    display: flex;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+
+.statusIndicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius);
+    background: var(--gray-100);
+    color: var(--gray-400);
+    transition: all 0.2s;
+}
+
+.statusConnected {
+    background: var(--success-100);
+    color: var(--success-600);
 }
 
 /* Category Tabs */
