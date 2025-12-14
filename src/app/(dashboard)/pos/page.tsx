@@ -680,7 +680,7 @@ export default function POSPage() {
         })
     }
 
-    // Send receipt via WhatsApp or Telegram (as downloadable image)
+    // Send receipt via WhatsApp or Telegram
     const sendReceipt = async () => {
         if (!receiptContact.trim()) {
             alert('Masukkan nomor WhatsApp atau username Telegram!')
@@ -688,40 +688,46 @@ export default function POSPage() {
         }
 
         setSendingReceipt(true)
+        const receiptText = generateReceiptText()
 
         try {
-            // Generate receipt image
-            const imageData = await generateReceiptImage()
-
-            if (imageData) {
-                // Download the image
-                const link = document.createElement('a')
-                link.download = `struk-${lastTransactionData?.invoice || 'receipt'}.png`
-                link.href = imageData
-                link.click()
-            }
-
-            // Open messaging app
             if (receiptType === 'whatsapp') {
+                // Format phone number
                 let phone = receiptContact.replace(/\D/g, '')
-                if (phone.startsWith('0')) phone = '62' + phone.slice(1)
-                if (!phone.startsWith('62')) phone = '62' + phone
-                window.open(`https://wa.me/${phone}`, '_blank')
+                if (phone.startsWith('0')) {
+                    phone = '62' + phone.slice(1)
+                }
+                if (!phone.startsWith('62')) {
+                    phone = '62' + phone
+                }
+
+                // Open WhatsApp Web
+                const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(receiptText)}`
+                window.open(waUrl, '_blank')
             } else if (receiptType === 'telegram') {
+                // Check if input is phone number or username
                 const isPhoneNumber = /^[0-9+]/.test(receiptContact.trim())
+
                 if (isPhoneNumber) {
+                    // Format phone number for Telegram
                     let phone = receiptContact.replace(/\D/g, '')
-                    if (phone.startsWith('0')) phone = '62' + phone.slice(1)
-                    if (!phone.startsWith('62')) phone = '62' + phone
-                    window.open(`https://t.me/+${phone}`, '_blank')
+                    if (phone.startsWith('0')) {
+                        phone = '62' + phone.slice(1)
+                    }
+                    if (!phone.startsWith('62')) {
+                        phone = '62' + phone
+                    }
+                    const tgUrl = `https://t.me/+${phone}?text=${encodeURIComponent(receiptText)}`
+                    window.open(tgUrl, '_blank')
                 } else {
+                    // Use as username
                     let username = receiptContact.replace('@', '')
-                    window.open(`https://t.me/${username}`, '_blank')
+                    const tgUrl = `https://t.me/${username}?text=${encodeURIComponent(receiptText)}`
+                    window.open(tgUrl, '_blank')
                 }
             }
 
-            alert('✅ Struk berhasil didownload!\n\nKirim gambar struk yang sudah terdownload ke chat customer.')
-
+            // Show success and close modal
             setShowReceiptModal(false)
             setShowSuccess(true)
             setTimeout(() => setShowSuccess(false), 3000)
