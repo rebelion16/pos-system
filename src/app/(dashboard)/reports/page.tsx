@@ -153,30 +153,152 @@ export default function ReportsPage() {
         }
     }
 
-    const exportToCSV = () => {
+    const exportToCSV = async () => {
         if (transactions.length === 0) return
 
         setExporting(true)
         try {
-            // Create CSV content
-            const headers = ['No. Invoice', 'Tanggal', 'Metode Bayar', 'Total', 'Status']
-            const rows = transactions.map(tx => [
-                tx.invoice_number,
-                new Date(tx.created_at).toLocaleString('id-ID'),
-                tx.payment_method === 'cash' ? 'Tunai' : tx.payment_method === 'transfer' ? 'Transfer' : 'QRIS',
-                tx.total,
-                tx.payment_status === 'completed' ? 'Selesai' : tx.payment_status
-            ])
+            // Fetch categories and products for category grouping
+            const categories = await firestoreService.getCategories()
+            const products = await firestoreService.getProducts()
 
-            // Add summary
+            // Helper to escape CSV fields
+            const escapeCSV = (val: any) => {
+                if (val === null || val === undefined) return ''
+                const str = String(val)
+                if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+                    return `"${str.replace(/"/g, '""')}"`
+                }
+                return str
+            }
+
+            // Helper to format date without commas
+            const formatDate = (dateStr: string) => {
+                const date = new Date(dateStr)
+                const day = date.getDate().toString().padStart(2, '0')
+                const month = (date.getMonth() + 1).toString().padStart(2, '0')
+                const year = date.getFullYear()
+                const hours = date.getHours().toString().padStart(2, '0')
+                const minutes = date.getMinutes().toString().padStart(2, '0')
+                return `${day}/${month}/${year} ${hours}:${minutes}`
+            }
+
+            // Get method label
+            const getMethod = (method: string) => {
+                switch (method) {
+                    case 'cash': return 'Tunai'
+                    case 'transfer': return 'Transfer'
+                    case 'qris': return 'QRIS'
+                    default: return method
+                }
+            }
+
+            // ===== SHEET 1: RINGKASAN TRANSAKSI =====
+            let csvContent = 'LAPORAN PENJUALAN - ' + getPeriodLabel().toUpperCase() + '\n'
+            csvContent += 'Tanggal Export: ' + formatDate(new Date().toISOString()) + '\n\n'
+
+            // Transaction summary header
+            csvContent += 'RINGKASAN TRANSAKSI\n'
+            csvContent += 'No. Invoice,Tanggal,Waktu,Metode Bayar,Total,Status\n'
+
+            // Transaction rows
+            transactions.forEach(tx => {
+                const date = new Date(tx.created_at)
+                const dateStr = `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`
+                const timeStr = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`
+                const method = getMethod(tx.payment_method)
+                const status = tx.payment_status === 'completed' ? 'Selesai' : tx.payment_status
+                csvContent += `${escapeCSV(tx.invoice_number)},${dateStr},${timeStr},${method},${tx.total},${status}\n`
+            })
+
+            // Transaction summary totals
             const totalSales = transactions.reduce((sum, tx) => sum + Number(tx.total), 0)
-            rows.push([])
-            rows.push(['', '', 'Total Penjualan:', totalSales, ''])
+            csvContent += `\n,,,Total Penjualan,${totalSales},\n`
+            csvContent += `,,,Jumlah Transaksi,${transactions.length},\n\n`
 
-            const csvContent = [
-                headers.join(','),
-                ...rows.map(row => row.join(','))
-            ].join('\n')
+            // ===== SHEET 2: DETAIL PENJUALAN PER ITEM =====
+            csvContent += '\nDETAIL PENJUALAN PER ITEM\n'
+            csvContent += 'No. Invoice,Tanggal,Nama Produk,Qty,Harga Satuan,Subtotal\n'
+
+            transactions.forEach(tx => {
+                const date = new Date(tx.created_at)
+                const dateStr = `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`
+                if (tx.items && tx.items.length > 0) {
+                    tx.items.forEach(item => {
+                        const price = item.subtotal / item.quantity
+                        csvContent += `${escapeCSV(tx.invoice_number)},${dateStr},${escapeCSV(item.product_name)},${item.quantity},${Math.round(price)},${item.subtotal}\n`
+                    })
+                }
+            })
+
+            // Calculate item totals
+            const itemTotals = new Map<string, { name: string; qty: number; revenue: number }>()
+            transactions.forEach(tx => {
+                tx.items?.forEach(item => {
+                    const existing = itemTotals.get(item.product_name) || { name: item.product_name, qty: 0, revenue: 0 }
+                    existing.qty += item.quantity
+                    existing.revenue += item.subtotal
+                    itemTotals.set(item.product_name, existing)
+                })
+            })
+
+            csvContent += '\nREKAP PER PRODUK\n'
+            csvContent += 'Nama Produk,Total Qty,Total Penjualan\n'
+            Array.from(itemTotals.values())
+                .sort((a, b) => b.revenue - a.revenue)
+                .forEach(item => {
+                    csvContent += `${escapeCSV(item.name)},${item.qty},${item.revenue}\n`
+                })
+
+            // ===== SHEET 3: PENJUALAN PER KATEGORI =====
+            csvContent += '\nPENJUALAN PER KATEGORI\n'
+            csvContent += 'Kategori,Jumlah Item Terjual,Total Penjualan\n'
+
+            // Create category map
+            const categoryMap = new Map<string, string>()
+            products.forEach(p => {
+                if (p.category_id) {
+                    const cat = categories.find(c => c.id === p.category_id)
+                    categoryMap.set(p.name, cat?.name || 'Tanpa Kategori')
+                } else {
+                    categoryMap.set(p.name, 'Tanpa Kategori')
+                }
+            })
+
+            // Calculate category totals
+            const categoryTotals = new Map<string, { qty: number; revenue: number }>()
+            transactions.forEach(tx => {
+                tx.items?.forEach(item => {
+                    const catName = categoryMap.get(item.product_name) || 'Tanpa Kategori'
+                    const existing = categoryTotals.get(catName) || { qty: 0, revenue: 0 }
+                    existing.qty += item.quantity
+                    existing.revenue += item.subtotal
+                    categoryTotals.set(catName, existing)
+                })
+            })
+
+            Array.from(categoryTotals.entries())
+                .sort((a, b) => b[1].revenue - a[1].revenue)
+                .forEach(([catName, data]) => {
+                    csvContent += `${escapeCSV(catName)},${data.qty},${data.revenue}\n`
+                })
+
+            // ===== SHEET 4: RINGKASAN METODE PEMBAYARAN =====
+            csvContent += '\nRINGKASAN METODE PEMBAYARAN\n'
+            csvContent += 'Metode,Jumlah Transaksi,Total\n'
+
+            const methodTotals = new Map<string, { count: number; total: number }>()
+            transactions.forEach(tx => {
+                const method = getMethod(tx.payment_method)
+                const existing = methodTotals.get(method) || { count: 0, total: 0 }
+                existing.count += 1
+                existing.total += Number(tx.total)
+                methodTotals.set(method, existing)
+            })
+
+            methodTotals.forEach((data, method) => {
+                csvContent += `${method},${data.count},${data.total}\n`
+            })
 
             // Create blob and download
             const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' })
