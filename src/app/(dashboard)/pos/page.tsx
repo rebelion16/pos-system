@@ -26,13 +26,29 @@ import {
     MessageCircle
 } from 'lucide-react'
 import { firestoreService } from '@/lib/firebase/firestore'
-import { Product, Category, ProductWithRelations, PaymentMethod, BankAccount, QRISConfig } from '@/types/database'
+import { Product, Category, ProductWithRelations, PaymentMethod, BankAccount, QRISConfig, ReceiptSettings } from '@/types/database'
 import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui'
 import { BarcodeScanner } from '@/components/BarcodeScanner'
 import styles from './pos.module.css'
 
 type ReceiptType = 'none' | 'print' | 'whatsapp' | 'telegram'
+
+const DEFAULT_RECEIPT_SETTINGS: ReceiptSettings = {
+    show_logo: false,
+    logo_url: null,
+    show_store_name: true,
+    show_store_address: true,
+    show_store_phone: true,
+    show_invoice_number: true,
+    show_date_time: true,
+    show_item_details: true,
+    show_payment_method: true,
+    show_change: true,
+    footer_text: 'Terima kasih atas kunjungan Anda!',
+    show_footer: true,
+    template_preset: 'standard'
+}
 
 interface CartItem {
     product: Product
@@ -75,6 +91,7 @@ export default function POSPage() {
         phone: string | null
         address: string | null
     } | null>(null)
+    const [receiptSettings, setReceiptSettings] = useState<ReceiptSettings>(DEFAULT_RECEIPT_SETTINGS)
     const searchRef = useRef<HTMLInputElement>(null)
     const barcodeBufferRef = useRef('')
     const barcodeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -92,10 +109,11 @@ export default function POSPage() {
 
     const fetchPaymentSettings = async () => {
         try {
-            const [accounts, qris, settings] = await Promise.all([
+            const [accounts, qris, settings, receiptConfig] = await Promise.all([
                 firestoreService.getBankAccounts(),
                 firestoreService.getQRISConfig(),
                 firestoreService.getSettings(),
+                firestoreService.getReceiptSettings(),
             ])
             setBankAccounts(accounts.filter(a => a.is_active))
             setQrisConfig(qris)
@@ -108,6 +126,9 @@ export default function POSPage() {
                     phone: settings.store_phone,
                     address: settings.store_address,
                 })
+            }
+            if (receiptConfig) {
+                setReceiptSettings(receiptConfig)
             }
         } catch (err) {
             console.log('[POS] Payment settings not configured:', err)
@@ -410,36 +431,53 @@ export default function POSPage() {
         else if (offset === 9) timezone = 'WIT'
         const timeStr = `${hours}:${minutes} ${timezone}`
 
-        // Store header
-        let text = ` *${storeSettings?.name || 'TOKO'}*\n`
-        if (storeSettings?.address) {
+        let text = ''
+
+        // Store header (based on settings)
+        if (receiptSettings.show_store_name) {
+            text += ` *${storeSettings?.name || 'TOKO'}*\n`
+        }
+        if (receiptSettings.show_store_address && storeSettings?.address) {
             text += ` ${storeSettings.address}\n`
         }
-        if (storeSettings?.phone) {
+        if (receiptSettings.show_store_phone && storeSettings?.phone) {
             text += ` ${storeSettings.phone}\n`
         }
+
         text += `\n *STRUK PEMBAYARAN*\n`
         text += `━━━━━━━━━━━━━━━━━━\n`
-        text += `Invoice: ${lastTransactionData.invoice}\n`
-        text += `${dayName}, ${date}\n`
-        text += `Jam: ${timeStr}\n`
+
+        if (receiptSettings.show_invoice_number) {
+            text += `Invoice: ${lastTransactionData.invoice}\n`
+        }
+        if (receiptSettings.show_date_time) {
+            text += `${dayName}, ${date}\n`
+            text += `Jam: ${timeStr}\n`
+        }
         text += `━━━━━━━━━━━━━━━━━━\n\n`
 
         lastTransactionData.items.forEach(item => {
             text += `${item.name}\n`
-            text += `  ${item.qty} x ${formatCurrency(item.price)} = ${formatCurrency(item.subtotal)}\n`
+            if (receiptSettings.show_item_details) {
+                text += `  ${item.qty} x ${formatCurrency(item.price)} = ${formatCurrency(item.subtotal)}\n`
+            }
         })
 
         text += `\n━━━━━━━━━━━━━━━━━━\n`
         text += `*TOTAL: ${formatCurrency(lastTransactionData.total)}*\n`
 
-        if (lastTransactionData.change !== undefined && lastTransactionData.change > 0) {
+        if (receiptSettings.show_change && lastTransactionData.change !== undefined && lastTransactionData.change > 0) {
             text += `Kembalian: ${formatCurrency(lastTransactionData.change)}\n`
         }
 
-        text += `Metode: ${lastTransactionData.paymentMethod.toUpperCase()}\n`
+        if (receiptSettings.show_payment_method) {
+            text += `Metode: ${lastTransactionData.paymentMethod.toUpperCase()}\n`
+        }
         text += `━━━━━━━━━━━━━━━━━━\n`
-        text += `Terima kasih sudah beli di ${storeSettings?.name || 'TOKO'}^.^`
+
+        if (receiptSettings.show_footer && receiptSettings.footer_text) {
+            text += receiptSettings.footer_text
+        }
 
         return text
     }
@@ -527,6 +565,49 @@ export default function POSPage() {
             return
         }
 
+        // Build header based on settings
+        let headerHtml = ''
+        if (receiptSettings.show_logo && receiptSettings.logo_url) {
+            headerHtml += `<div class="center"><img src="${receiptSettings.logo_url}" style="max-width:80px;max-height:50px;margin-bottom:4px;" /></div>`
+        }
+        if (receiptSettings.show_store_name) {
+            headerHtml += `<div class="center store-name">${storeSettings?.name || 'TOKO'}</div>`
+        }
+        if (receiptSettings.show_store_address && storeSettings?.address) {
+            headerHtml += `<div class="center store-info">${storeSettings.address}</div>`
+        }
+        if (receiptSettings.show_store_phone && storeSettings?.phone) {
+            headerHtml += `<div class="center store-info">Telp: ${storeSettings.phone}</div>`
+        }
+
+        // Build invoice/date section
+        let infoHtml = ''
+        if (receiptSettings.show_invoice_number) {
+            infoHtml += `<div>Invoice: ${lastTransactionData.invoice}</div>`
+        }
+        if (receiptSettings.show_date_time) {
+            infoHtml += `<div>${dayName}, ${date}</div>`
+            infoHtml += `<div>Jam: ${timeStr}</div>`
+        }
+
+        // Build items section
+        const itemsHtml = lastTransactionData.items.map(item => {
+            let html = `<div>${item.name}</div>`
+            if (receiptSettings.show_item_details) {
+                html += `<div class="item-detail">${item.qty} x ${formatCurrency(item.price)} = ${formatCurrency(item.subtotal)}</div>`
+            }
+            return html
+        }).join('')
+
+        // Build footer section
+        let footerHtml = ''
+        if (receiptSettings.show_change && lastTransactionData.change !== undefined && lastTransactionData.change > 0) {
+            footerHtml += `<div class="item"><span>Kembalian</span><span>${formatCurrency(lastTransactionData.change)}</span></div>`
+        }
+        if (receiptSettings.show_payment_method) {
+            footerHtml += `<div>Metode: ${lastTransactionData.paymentMethod.toUpperCase()}</div>`
+        }
+
         const printContent = `
 <!DOCTYPE html>
 <html>
@@ -545,26 +626,18 @@ export default function POSPage() {
     </style>
 </head>
 <body>
-    <div class="center store-name">${storeSettings?.name || 'TOKO'}</div>
-    ${storeSettings?.address ? `<div class="center store-info">${storeSettings.address}</div>` : ''}
-    ${storeSettings?.phone ? `<div class="center store-info">Telp: ${storeSettings.phone}</div>` : ''}
+    ${headerHtml}
     <div class="divider"></div>
     <div class="center bold">STRUK PEMBAYARAN</div>
     <div class="divider"></div>
-    <div>Invoice: ${lastTransactionData.invoice}</div>
-    <div>${dayName}, ${date}</div>
-    <div>Jam: ${timeStr}</div>
+    ${infoHtml}
     <div class="divider"></div>
-    ${lastTransactionData.items.map(item => `
-        <div>${item.name}</div>
-        <div class="item-detail">${item.qty} x ${formatCurrency(item.price)} = ${formatCurrency(item.subtotal)}</div>
-    `).join('')}
+    ${itemsHtml}
     <div class="divider"></div>
     <div class="total item"><span>TOTAL</span><span>${formatCurrency(lastTransactionData.total)}</span></div>
-    ${lastTransactionData.change !== undefined && lastTransactionData.change > 0 ? `<div class="item"><span>Kembalian</span><span>${formatCurrency(lastTransactionData.change)}</span></div>` : ''}
-    <div>Metode: ${lastTransactionData.paymentMethod.toUpperCase()}</div>
+    ${footerHtml}
     <div class="divider"></div>
-    <div class="center">Terima kasih!</div>
+    ${receiptSettings.show_footer && receiptSettings.footer_text ? `<div class="center">${receiptSettings.footer_text}</div>` : '<div class="center">Terima kasih!</div>'}
     <script>window.onload = function() { window.print(); }</script>
 </body>
 </html>`
