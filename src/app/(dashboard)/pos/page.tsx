@@ -455,10 +455,26 @@ export default function POSPage() {
                 const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(receiptText)}`
                 window.open(waUrl, '_blank')
             } else if (receiptType === 'telegram') {
-                // Open Telegram
-                let username = receiptContact.replace('@', '')
-                const tgUrl = `https://t.me/${username}?text=${encodeURIComponent(receiptText)}`
-                window.open(tgUrl, '_blank')
+                // Check if input is phone number or username
+                const isPhoneNumber = /^[0-9+]/.test(receiptContact.trim())
+
+                if (isPhoneNumber) {
+                    // Format phone number for Telegram
+                    let phone = receiptContact.replace(/\D/g, '')
+                    if (phone.startsWith('0')) {
+                        phone = '62' + phone.slice(1)
+                    }
+                    if (!phone.startsWith('62')) {
+                        phone = '62' + phone
+                    }
+                    const tgUrl = `https://t.me/+${phone}?text=${encodeURIComponent(receiptText)}`
+                    window.open(tgUrl, '_blank')
+                } else {
+                    // Use as username
+                    let username = receiptContact.replace('@', '')
+                    const tgUrl = `https://t.me/${username}?text=${encodeURIComponent(receiptText)}`
+                    window.open(tgUrl, '_blank')
+                }
             }
 
             // Show success and close modal
@@ -970,13 +986,15 @@ export default function POSPage() {
                             {(receiptType === 'whatsapp' || receiptType === 'telegram') && (
                                 <div className={styles.receiptContactInput}>
                                     <label>
-                                        {receiptType === 'whatsapp' ? 'Nomor WhatsApp Customer' : 'Username Telegram Customer'}
+                                        {receiptType === 'whatsapp'
+                                            ? 'Nomor WhatsApp Customer'
+                                            : 'Nomor HP / Username Telegram Customer'}
                                     </label>
                                     <input
                                         type="text"
                                         value={receiptContact}
                                         onChange={(e) => setReceiptContact(e.target.value)}
-                                        placeholder={receiptType === 'whatsapp' ? '08123456789' : '@username'}
+                                        placeholder={receiptType === 'whatsapp' ? '08123456789' : '08123456789 atau @username'}
                                         autoFocus
                                     />
                                 </div>
