@@ -438,6 +438,33 @@ export default function SettingsPage() {
                 </div>
             </div>
 
+            {/* Receipt Settings Section */}
+            <div className={styles.section}>
+                <div className={styles.sectionHeader}>
+                    <div className={styles.sectionIcon} style={{ background: 'var(--primary-100)', color: 'var(--primary-600)' }}>
+                        <Printer size={20} />
+                    </div>
+                    <div>
+                        <h3 className={styles.sectionTitle}>Pengaturan Struk</h3>
+                        <p className={styles.sectionDesc}>
+                            Kustomisasi tampilan struk pembayaran
+                        </p>
+                    </div>
+                </div>
+                <div className={styles.sectionBody}>
+                    <Link href="/receipt" className={styles.paymentLink}>
+                        <div className={styles.paymentLinkContent}>
+                            <Printer size={20} />
+                            <div>
+                                <strong>Template Struk</strong>
+                                <span>Logo, header, footer, dan elemen struk</span>
+                            </div>
+                        </div>
+                        <ChevronRight size={20} />
+                    </Link>
+                </div>
+            </div>
+
             {/* Reset Data Section */}
             <div className={styles.section} style={{ borderColor: 'var(--danger-200)' }}>
                 <div className={styles.sectionHeader}>

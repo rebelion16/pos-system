@@ -409,3 +409,29 @@ export interface BankAccountExtended extends BankAccount {
     bank_logo?: string | null
     bank_code?: string | null
 }
+
+// Receipt Settings for custom receipt templates
+export type ReceiptPreset = 'simple' | 'standard' | 'detailed'
+
+export interface ReceiptSettings {
+    // Header
+    show_logo: boolean
+    logo_url: string | null
+    show_store_name: boolean
+    show_store_address: boolean
+    show_store_phone: boolean
+
+    // Content
+    show_invoice_number: boolean
+    show_date_time: boolean
+    show_item_details: boolean
+    show_payment_method: boolean
+    show_change: boolean
+
+    // Footer
+    footer_text: string
+    show_footer: boolean
+
+    // Template preset
+    template_preset: ReceiptPreset
+}

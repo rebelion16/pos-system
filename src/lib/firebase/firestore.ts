@@ -29,7 +29,8 @@ import {
     StockHistory,
     Cashier,
     BankAccount,
-    QRISConfig
+    QRISConfig,
+    ReceiptSettings
 } from '@/types/database'
 
 // Collection names
@@ -673,6 +674,25 @@ export const firestoreService = {
             const { addDoc: _, ...data } = config as QRISConfig & { addDoc?: unknown }
             await import('firebase/firestore').then(async ({ setDoc }) => {
                 await setDoc(docRef, data)
+            })
+        })
+    },
+
+    // ==================== RECEIPT SETTINGS ====================
+    getReceiptSettings: async (): Promise<ReceiptSettings | null> => {
+        if (!db) return null
+        const docRef = doc(db, 'settings', 'receipt')
+        const docSnap = await getDoc(docRef)
+        if (!docSnap.exists()) return null
+        return docSnap.data() as ReceiptSettings
+    },
+
+    saveReceiptSettings: async (settings: ReceiptSettings): Promise<void> => {
+        if (!db) throw new Error('Firestore not configured')
+        const docRef = doc(db, 'settings', 'receipt')
+        await updateDoc(docRef, { ...settings }).catch(async () => {
+            await import('firebase/firestore').then(async ({ setDoc }) => {
+                await setDoc(docRef, settings)
             })
         })
     },
