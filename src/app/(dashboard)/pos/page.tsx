@@ -372,6 +372,7 @@ export default function POSPage() {
 
             // Create transaction using Firestore
             await firestoreService.createTransaction({
+                store_id: storeId || user?.storeId || '',
                 user_id: user?.id || '',
                 invoice_number: invoiceNumber,
                 subtotal: calculateSubtotal(),

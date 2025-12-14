@@ -186,6 +186,7 @@ export interface Database {
             transactions: {
                 Row: {
                     id: string
+                    store_id: string
                     user_id: string
                     invoice_number: string
                     subtotal: number
@@ -203,6 +204,7 @@ export interface Database {
                 }
                 Insert: {
                     id?: string
+                    store_id: string
                     user_id: string
                     invoice_number: string
                     subtotal: number
