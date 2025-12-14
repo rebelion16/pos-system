@@ -525,7 +525,7 @@ export const firestoreService = {
         return cashier
     },
 
-    createCashier: async (data: { username: string; password: string; name: string; store_code: string }): Promise<Cashier> => {
+    createCashier: async (data: { username: string; password: string; name: string; store_code: string; store_id: string }): Promise<Cashier> => {
         if (!db) throw new Error('Firestore not configured')
 
         // Check if username already exists for this store
@@ -542,6 +542,7 @@ export const firestoreService = {
             password_hash: passwordHash,
             name: data.name,
             store_code: data.store_code,
+            store_id: data.store_id,
             is_active: true,
             created_at: now,
             updated_at: now,
@@ -553,6 +554,7 @@ export const firestoreService = {
             password_hash: passwordHash,
             name: data.name,
             store_code: data.store_code,
+            store_id: data.store_id,
             is_active: true,
             created_at: now.toDate().toISOString(),
             updated_at: now.toDate().toISOString(),

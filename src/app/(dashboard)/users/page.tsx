@@ -139,6 +139,7 @@ export default function UsersPage() {
                     password,
                     name: name.trim(),
                     store_code: storeCode,
+                    store_id: storeId!,
                 })
             }
 

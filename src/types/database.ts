@@ -349,6 +349,7 @@ export interface Database {
                     password_hash: string
                     name: string
                     store_code: string
+                    store_id: string  // Direct reference to store owner's ID
                     is_active: boolean
                     created_at: string
                     updated_at: string
@@ -359,6 +360,7 @@ export interface Database {
                     password_hash: string
                     name: string
                     store_code: string
+                    store_id: string
                     is_active?: boolean
                     created_at?: string
                     updated_at?: string
@@ -368,6 +370,7 @@ export interface Database {
                     password_hash?: string
                     name?: string
                     store_code?: string
+                    store_id?: string
                     is_active?: boolean
                     updated_at?: string
                 }

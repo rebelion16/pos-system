@@ -255,24 +255,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 return { error: new Error('Username, password, atau kode toko salah') }
             }
 
-            // Set user state
-            // Find the store owner by store code to get store_id
-            let storeId = ''
-
-            // Try to find by user store_code first
-            const storeOwner = await firestoreService.getUserByStoreCode(cashier.store_code)
-            if (storeOwner) {
-                storeId = storeOwner.id
-            } else {
-                // If not found (e.g. store code changed in settings), try settings
-                const storeSettings = await firestoreService.getSettingsByStoreCode(cashier.store_code)
-                if (storeSettings) {
-                    storeId = storeSettings.store_id
-                }
-            }
+            // Get store_id directly from cashier record
+            const storeId = cashier.store_id
 
             if (!storeId) {
-                return { error: new Error('Data toko tidak ditemukan untuk kode ini') }
+                // Fallback: try to find by user store_code or settings (for backward compatibility)
+                let fallbackStoreId = ''
+                const storeOwner = await firestoreService.getUserByStoreCode(cashier.store_code)
+                if (storeOwner) {
+                    fallbackStoreId = storeOwner.id
+                } else {
+                    const storeSettings = await firestoreService.getSettingsByStoreCode(cashier.store_code)
+                    if (storeSettings) {
+                        fallbackStoreId = storeSettings.store_id
+                    }
+                }
+
+                if (!fallbackStoreId) {
+                    return { error: new Error('Data toko tidak ditemukan untuk kode ini') }
+                }
+
+                // Store cashier session WITH storeId for proper restoration
+                sessionStorage.setItem(CASHIER_SESSION_KEY, JSON.stringify({
+                    id: cashier.id,
+                    name: cashier.name,
+                    username: cashier.username,
+                    storeCode: cashier.store_code,
+                    storeId: fallbackStoreId
+                }))
+
+                setUser({
+                    id: cashier.id,
+                    email: '',
+                    name: cashier.name,
+                    role: 'cashier',
+                    storeId: fallbackStoreId,
+                    storeCode: null,
+                    avatar_url: null,
+                    email_verified: true,
+                    loginType: 'cashier',
+                    cashierId: cashier.id
+                })
+
+                return { error: null }
             }
 
             // Store cashier session WITH storeId for proper restoration
@@ -281,7 +306,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 name: cashier.name,
                 username: cashier.username,
                 storeCode: cashier.store_code,
-                storeId: storeId  // Store storeId so it can be restored properly
+                storeId: storeId
             }))
 
             setUser({
