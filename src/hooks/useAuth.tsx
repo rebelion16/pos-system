@@ -265,8 +265,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
             // Set user state
             // Find the store owner by store code to get store_id
+            let storeId = ''
+
+            // Try to find by user store_code first
             const storeOwner = await firestoreService.getUserByStoreCode(cashier.store_code)
-            const storeId = storeOwner?.id || ''
+            if (storeOwner) {
+                storeId = storeOwner.id
+            } else {
+                // If not found (e.g. store code changed in settings), try settings
+                const storeSettings = await firestoreService.getSettingsByStoreCode(cashier.store_code)
+                if (storeSettings) {
+                    storeId = storeSettings.store_id
+                }
+            }
+
+            if (!storeId) {
+                return { error: new Error('Data toko tidak ditemukan untuk kode ini') }
+            }
 
             setUser({
                 id: cashier.id,

@@ -749,6 +749,14 @@ export const firestoreService = {
             await updateDoc(docRef, { ...settings })
         }
     },
+
+    getSettingsByStoreCode: async (storeCode: string): Promise<Settings | null> => {
+        if (!db) return null
+        const q = query(collection(db, COLLECTIONS.settings), where('store_code', '==', storeCode))
+        const snapshot = await getDocs(q)
+        if (snapshot.empty) return null
+        return convertDoc<Settings>(snapshot.docs[0])
+    },
 }
 
 export default firestoreService
