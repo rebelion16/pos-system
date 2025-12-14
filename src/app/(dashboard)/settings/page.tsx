@@ -12,8 +12,12 @@ import {
     Moon,
     Cloud,
     Trash2,
-    AlertTriangle
+    AlertTriangle,
+    CreditCard,
+    QrCode,
+    ChevronRight
 } from 'lucide-react'
+import Link from 'next/link'
 import { firestoreService } from '@/lib/firebase/firestore'
 import { setWebAppUrl, getWebAppUrl } from '@/lib/googleSheets'
 import { Button } from '@/components/ui'
@@ -395,6 +399,43 @@ export default function SettingsPage() {
                         </>
                     )}
                 </Button>
+            </div>
+
+            {/* Payment Settings Section */}
+            <div className={styles.section}>
+                <div className={styles.sectionHeader}>
+                    <div className={styles.sectionIcon} style={{ background: 'var(--success-100)', color: 'var(--success-600)' }}>
+                        <CreditCard size={20} />
+                    </div>
+                    <div>
+                        <h3 className={styles.sectionTitle}>Pengaturan Pembayaran</h3>
+                        <p className={styles.sectionDesc}>
+                            Kelola rekening bank dan konfigurasi QRIS
+                        </p>
+                    </div>
+                </div>
+                <div className={styles.sectionBody}>
+                    <Link href="/payment" className={styles.paymentLink}>
+                        <div className={styles.paymentLinkContent}>
+                            <CreditCard size={20} />
+                            <div>
+                                <strong>Rekening Bank</strong>
+                                <span>Kelola daftar rekening bank untuk transfer</span>
+                            </div>
+                        </div>
+                        <ChevronRight size={20} />
+                    </Link>
+                    <Link href="/payment" className={styles.paymentLink}>
+                        <div className={styles.paymentLinkContent}>
+                            <QrCode size={20} />
+                            <div>
+                                <strong>Konfigurasi QRIS</strong>
+                                <span>Atur QRIS statis dan dinamis</span>
+                            </div>
+                        </div>
+                        <ChevronRight size={20} />
+                    </Link>
+                </div>
             </div>
 
             {/* Reset Data Section */}
