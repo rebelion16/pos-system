@@ -8,10 +8,12 @@ import {
     Trash2,
     Package,
     X,
+    Camera,
 } from 'lucide-react'
 import { firestoreService } from '@/lib/firebase/firestore'
 import { Product, Category, ProductWithRelations } from '@/types/database'
 import { Button, Input } from '@/components/ui'
+import { BarcodeScanner } from '@/components/BarcodeScanner'
 import styles from './products.module.css'
 
 export default function ProductsPage() {
@@ -36,6 +38,7 @@ export default function ProductsPage() {
     })
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState('')
+    const [showScanner, setShowScanner] = useState(false)
 
     useEffect(() => {
         fetchProducts()
@@ -302,13 +305,23 @@ export default function ProductsPage() {
                                         onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
                                         placeholder="ABC-001"
                                     />
-                                    <Input
-                                        label="Barcode"
-                                        type="text"
-                                        value={formData.barcode}
-                                        onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
-                                        placeholder="8992761234567"
-                                    />
+                                    <div className={styles.barcodeInputWrapper}>
+                                        <Input
+                                            label="Barcode"
+                                            type="text"
+                                            value={formData.barcode}
+                                            onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
+                                            placeholder="8992761234567"
+                                        />
+                                        <button
+                                            type="button"
+                                            className={styles.scanBtn}
+                                            onClick={() => setShowScanner(true)}
+                                            title="Scan Barcode"
+                                        >
+                                            <Camera size={18} />
+                                        </button>
+                                    </div>
                                 </div>
 
                                 <div className={styles.formRow}>
@@ -397,6 +410,17 @@ export default function ProductsPage() {
                         </form>
                     </div>
                 </div>
+            )}
+
+            {/* Barcode Scanner Modal */}
+            {showScanner && (
+                <BarcodeScanner
+                    onScan={(barcode) => {
+                        setFormData({ ...formData, barcode })
+                        setShowScanner(false)
+                    }}
+                    onClose={() => setShowScanner(false)}
+                />
             )}
         </div>
     )

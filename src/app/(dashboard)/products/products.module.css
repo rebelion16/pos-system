@@ -278,6 +278,35 @@
     accent-color: var(--primary-600);
 }
 
+/* Barcode Scanner Button */
+.barcodeInputWrapper {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+.scanBtn {
+    position: absolute;
+    right: 0.5rem;
+    bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--primary-500);
+    background: var(--primary-50);
+    color: var(--primary-600);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.scanBtn:hover {
+    background: var(--primary-100);
+    border-color: var(--primary-600);
+}
+
 /* Responsive */
 @media (min-width: 480px) {
     .productGrid {
