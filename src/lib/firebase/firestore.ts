@@ -424,19 +424,30 @@ export const firestoreService = {
     },
 
     // ==================== SETTINGS ====================
-    getSettings: async (): Promise<Settings | null> => {
+    getSettings: async (storeId?: string): Promise<Settings | null> => {
         if (!db) return null
+        if (storeId) {
+            const q = query(collection(db, COLLECTIONS.settings), where('store_id', '==', storeId))
+            const snapshot = await getDocs(q)
+            if (snapshot.empty) return null
+            return convertDoc<Settings>(snapshot.docs[0])
+        }
         const snapshot = await getDocs(collection(db, COLLECTIONS.settings))
         if (snapshot.empty) return null
         return convertDoc<Settings>(snapshot.docs[0])
     },
 
-    updateSettings: async (data: Partial<Settings>): Promise<void> => {
+    updateSettings: async (storeId: string, data: Partial<Settings>): Promise<void> => {
         if (!db) throw new Error('Firestore not configured')
-        const snapshot = await getDocs(collection(db, COLLECTIONS.settings))
+
+        // Find existing settings for this store
+        const q = query(collection(db, COLLECTIONS.settings), where('store_id', '==', storeId))
+        const snapshot = await getDocs(q)
+
         if (snapshot.empty) {
             // Create settings if not exists
             await addDoc(collection(db, COLLECTIONS.settings), {
+                store_id: storeId,
                 store_name: 'Toko Saya',
                 store_address: '',
                 store_phone: '',

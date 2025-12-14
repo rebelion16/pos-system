@@ -21,6 +21,7 @@ import Link from 'next/link'
 import { firestoreService } from '@/lib/firebase/firestore'
 import { setWebAppUrl, getWebAppUrl } from '@/lib/googleSheets'
 import { Button } from '@/components/ui'
+import { useAuth } from '@/hooks/useAuth'
 import styles from './settings.module.css'
 
 interface SettingsData {
@@ -41,6 +42,7 @@ type ThemeMode = 'light' | 'dark'
 type ThemeColor = 'blue' | 'green' | 'pink' | 'orange' | 'purple'
 
 export default function SettingsPage() {
+    const { storeId } = useAuth()
     const [settings, setSettings] = useState<SettingsData | null>(null)
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
@@ -60,10 +62,11 @@ export default function SettingsPage() {
     const [webAppUrlInput, setWebAppUrlInput] = useState('')
 
     useEffect(() => {
+        if (!storeId) return
         fetchSettings()
         // Load saved Web App URL
         setWebAppUrlInput(getWebAppUrl())
-    }, [])
+    }, [storeId])
 
     useEffect(() => {
         // Apply theme to document
@@ -72,8 +75,9 @@ export default function SettingsPage() {
     }, [themeMode, themeColor])
 
     const fetchSettings = async () => {
+        if (!storeId) return
         try {
-            const data = await firestoreService.getSettings()
+            const data = await firestoreService.getSettings(storeId)
 
             if (!data) {
                 setLoading(false)
@@ -115,7 +119,7 @@ export default function SettingsPage() {
                 printer_name: printerName || null,
             }
 
-            await firestoreService.updateSettings(settingsData)
+            await firestoreService.updateSettings(storeId!, settingsData)
 
             setShowSaved(true)
             setTimeout(() => setShowSaved(false), 3000)

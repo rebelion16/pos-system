@@ -109,11 +109,12 @@ export default function POSPage() {
     }, [storeId])
 
     const fetchPaymentSettings = async () => {
+        if (!storeId) return
         try {
             const [accounts, qris, settings, receiptConfig] = await Promise.all([
                 firestoreService.getBankAccounts(),
                 firestoreService.getQRISConfig(),
-                firestoreService.getSettings(),
+                firestoreService.getSettings(storeId),
                 firestoreService.getReceiptSettings(),
             ])
             setBankAccounts(accounts.filter(a => a.is_active))

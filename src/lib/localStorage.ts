@@ -68,6 +68,7 @@ const initializeDemoData = () => {
     // Demo settings
     const settings: Settings = {
         id: generateId(),
+        store_id: demoUserId,
         store_name: 'Toko Demo',
         store_address: 'Jl. Contoh No. 123',
         store_phone: '08123456789',

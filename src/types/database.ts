@@ -294,6 +294,7 @@ export interface Database {
             settings: {
                 Row: {
                     id: string
+                    store_id: string
                     store_name: string
                     store_address: string | null
                     store_phone: string | null
@@ -309,6 +310,7 @@ export interface Database {
                 }
                 Insert: {
                     id?: string
+                    store_id: string
                     store_name: string
                     store_address?: string | null
                     store_phone?: string | null

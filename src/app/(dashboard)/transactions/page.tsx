@@ -34,9 +34,10 @@ export default function TransactionsPage() {
     const [receiptSettings, setReceiptSettings] = useState<ReceiptSettings | null>(null)
 
     const fetchSettings = async () => {
+        if (!storeId) return
         try {
             const [store, receipt] = await Promise.all([
-                firestoreService.getSettings(),
+                firestoreService.getSettings(storeId),
                 firestoreService.getReceiptSettings()
             ])
             setStoreSettings(store)

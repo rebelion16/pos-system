@@ -16,6 +16,7 @@ import {
 import { firestoreService } from '@/lib/firebase/firestore'
 import { Button } from '@/components/ui'
 import { Cashier } from '@/types/database'
+import { useAuth } from '@/hooks/useAuth'
 import styles from './users.module.css'
 
 type FormCashier = {
@@ -27,6 +28,7 @@ type FormCashier = {
 }
 
 export default function UsersPage() {
+    const { storeId } = useAuth()
     const [cashiers, setCashiers] = useState<Cashier[]>([])
     const [storeCode, setStoreCode] = useState<string | null>(null)
     const [loading, setLoading] = useState(true)
@@ -43,13 +45,15 @@ export default function UsersPage() {
     const [showPassword, setShowPassword] = useState(false)
 
     useEffect(() => {
+        if (!storeId) return
         fetchData()
-    }, [])
+    }, [storeId])
 
     const fetchData = async () => {
+        if (!storeId) return
         try {
             // Get store settings first
-            const settings = await firestoreService.getSettings()
+            const settings = await firestoreService.getSettings(storeId)
             if (settings?.store_code) {
                 setStoreCode(settings.store_code)
                 // Get cashiers for this store

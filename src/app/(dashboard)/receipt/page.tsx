@@ -24,6 +24,7 @@ import Link from 'next/link'
 import { firestoreService } from '@/lib/firebase/firestore'
 import { ReceiptSettings, ReceiptPreset, Settings } from '@/types/database'
 import { Button } from '@/components/ui'
+import { useAuth } from '@/hooks/useAuth'
 import styles from './receipt.module.css'
 
 const DEFAULT_SETTINGS: ReceiptSettings = {
@@ -43,6 +44,7 @@ const DEFAULT_SETTINGS: ReceiptSettings = {
 }
 
 export default function ReceiptSettingsPage() {
+    const { storeId } = useAuth()
     const [settings, setSettings] = useState<ReceiptSettings>(DEFAULT_SETTINGS)
     const [storeSettings, setStoreSettings] = useState<Settings | null>(null)
     const [loading, setLoading] = useState(true)
@@ -50,14 +52,16 @@ export default function ReceiptSettingsPage() {
     const [toast, setToast] = useState<string | null>(null)
 
     useEffect(() => {
+        if (!storeId) return
         fetchSettings()
-    }, [])
+    }, [storeId])
 
     const fetchSettings = async () => {
+        if (!storeId) return
         try {
             const [receiptData, storeData] = await Promise.all([
                 firestoreService.getReceiptSettings(),
-                firestoreService.getSettings()
+                firestoreService.getSettings(storeId)
             ])
             if (receiptData) {
                 setSettings(receiptData)
