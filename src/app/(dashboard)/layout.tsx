@@ -75,21 +75,18 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     const handleSignOut = async () => {
         try {
             await signOut()
-            // Small delay to ensure state is cleared
-            setTimeout(() => {
-                router.push('/login')
-            }, 100)
+            // Direct navigation without waiting
+            router.replace('/login')
         } catch (error) {
             console.error('Error signing out:', error)
-            // Force redirect even if there's an error
-            router.push('/login')
+            router.replace('/login')
         }
     }
 
-    // Redirect to login if not authenticated
+    // Redirect to login if not authenticated (only once)
     useEffect(() => {
         if (!loading && !user) {
-            router.push('/login')
+            router.replace('/login')
         }
     }, [loading, user, router])
 
