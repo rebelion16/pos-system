@@ -53,7 +53,8 @@ export default function SettingsPage() {
     const [storeName, setStoreName] = useState('')
     const [storeAddress, setStoreAddress] = useState('')
     const [storePhone, setStorePhone] = useState('')
-    const [storeCodeInput, setStoreCodeInput] = useState('')
+    const [storeCodeInput, setStoreCodeInput] = useState('')  // Display/edit value
+    const [originalStoreCode, setOriginalStoreCode] = useState('')  // Database path (read-only)
     const [taxRate, setTaxRate] = useState(0)
     const [themeMode, setThemeMode] = useState<ThemeMode>('light')
     const [themeColor, setThemeColor] = useState<ThemeColor>('blue')
@@ -61,12 +62,13 @@ export default function SettingsPage() {
     const [printerName, setPrinterName] = useState('')
     const [webAppUrlInput, setWebAppUrlInput] = useState('')
 
+
     useEffect(() => {
-        if (!storeCode || !user) return
+        if (!user) return
         fetchSettings()
         // Load saved Web App URL
         setWebAppUrlInput(getWebAppUrl())
-    }, [storeCode, user])
+    }, [user])
 
     useEffect(() => {
         // Apply theme to document
@@ -75,34 +77,36 @@ export default function SettingsPage() {
     }, [themeMode, themeColor])
 
     const fetchSettings = async () => {
-        if (!storeCode || !user) return
+        if (!user) return
         try {
-            const [data, userData] = await Promise.all([
-                firestoreService.getSettings(storeCode),
-                firestoreService.getUserById(user.id)
-            ])
+            // First, fetch user data to get store_code
+            const userData = await firestoreService.getUserById(user.id)
+            const userStoreCode = userData?.store_code || ''
 
-            if (!data) {
-                // If no settings yet, use store_code from user document
-                setStoreCodeInput(userData?.store_code || '')
-                setLoading(false)
-                return
+            // Set both display value and original (path) value
+            setStoreCodeInput(userStoreCode)
+            setOriginalStoreCode(userStoreCode)  // This is used as database path
+
+            // If we have a store_code, fetch settings
+            if (userStoreCode) {
+                const data = await firestoreService.getSettings(userStoreCode)
+
+                if (data) {
+                    setSettings(data)
+                    setStoreName(data.store_name)
+                    setStoreAddress(data.store_address || '')
+                    setStorePhone(data.store_phone || '')
+                    // Keep store_code from user document (already set above)
+                    setTaxRate(data.tax_rate)
+                    setPrinterEnabled(data.printer_enabled)
+                    setPrinterName(data.printer_name || '')
+
+                    // Parse theme
+                    const themeParts = data.theme?.split('-') || ['light', 'blue']
+                    setThemeMode(themeParts[0] as ThemeMode)
+                    setThemeColor((themeParts[1] || 'blue') as ThemeColor)
+                }
             }
-
-            setSettings(data)
-            setStoreName(data.store_name)
-            setStoreAddress(data.store_address || '')
-            setStorePhone(data.store_phone || '')
-            // Use settings store_code if exists, otherwise fallback to user.store_code
-            setStoreCodeInput(data.store_code || userData?.store_code || '')
-            setTaxRate(data.tax_rate)
-            setPrinterEnabled(data.printer_enabled)
-            setPrinterName(data.printer_name || '')
-
-            // Parse theme
-            const themeParts = data.theme?.split('-') || ['light', 'blue']
-            setThemeMode(themeParts[0] as ThemeMode)
-            setThemeColor((themeParts[1] || 'blue') as ThemeColor)
         } catch (error) {
             console.error('Error:', error)
         } finally {
@@ -111,6 +115,11 @@ export default function SettingsPage() {
     }
 
     const saveSettings = async () => {
+        if (!originalStoreCode) {
+            console.error('No store code available')
+            return
+        }
+
         setSaving(true)
         try {
             const themeValue = `${themeMode}-${themeColor}`
@@ -118,20 +127,15 @@ export default function SettingsPage() {
                 store_name: storeName,
                 store_address: storeAddress || null,
                 store_phone: storePhone || null,
-                store_code: storeCodeInput || null,
+                store_code: originalStoreCode,  // Keep original store_code (path = store_code)
                 tax_rate: taxRate,
                 theme: themeValue,
                 printer_enabled: printerEnabled,
                 printer_name: printerName || null,
             }
 
-            await firestoreService.updateSettings(storeCode!, settingsData)
-
-            // IMPORTANT: Also sync store_code to user document
-            // This is necessary because cashier login uses getUserByStoreCode which searches user.store_code
-            if (user && storeCodeInput) {
-                await firestoreService.updateUser(user.id, { store_code: storeCodeInput })
-            }
+            // Use originalStoreCode as the database path
+            await firestoreService.updateSettings(originalStoreCode, settingsData)
 
             setShowSaved(true)
             setTimeout(() => setShowSaved(false), 3000)
@@ -205,12 +209,11 @@ export default function SettingsPage() {
                                 type="text"
                                 className={styles.input}
                                 value={storeCodeInput}
-                                onChange={(e) => setStoreCodeInput(e.target.value.toUpperCase())}
-                                placeholder="Contoh: TOKO123"
-                                style={{ textTransform: 'uppercase' }}
+                                readOnly
+                                style={{ textTransform: 'uppercase', backgroundColor: 'var(--bg-tertiary)', cursor: 'not-allowed' }}
                             />
                             <p style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: '0.25rem' }}>
-                                Kasir menggunakan kode ini saat login. Bisa berupa nama toko atau kode unik.
+                                Kode ini dibuat otomatis saat registrasi. Kasir menggunakan kode ini untuk login.
                             </p>
                         </div>
                         <div className={styles.formGroup} style={{ gridColumn: '1 / -1' }}>
