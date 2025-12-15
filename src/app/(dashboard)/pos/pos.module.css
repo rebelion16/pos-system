@@ -578,6 +578,26 @@
     color: var(--text-primary);
 }
 
+.cartSummaryDetails {
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px dashed var(--border);
+}
+
+.summaryRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.25rem;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+.summaryRow span:last-child {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
 .payButton {
     width: 100%;
     padding: 1rem;
@@ -645,6 +665,36 @@
     font-size: 2rem;
     font-weight: 700;
     color: var(--primary-700);
+}
+
+.grandTotal {
+    text-align: center;
+}
+
+.paymentSummaryDetails {
+    margin-bottom: 1rem;
+}
+
+.paymentSummaryRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+    font-size: 0.9375rem;
+    color: var(--text-secondary);
+    padding: 0 1rem;
+}
+
+.paymentSummaryRow span:last-child {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.divider {
+    height: 1px;
+    background: var(--primary-200);
+    margin: 1rem 0;
+    border-top: 1px dashed var(--primary-300);
 }
 
 .paymentLabel {

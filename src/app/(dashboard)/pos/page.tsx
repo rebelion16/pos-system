@@ -82,6 +82,9 @@ export default function POSPage() {
     const [lastTransactionData, setLastTransactionData] = useState<{
         invoice: string
         items: { name: string; qty: number; price: number; subtotal: number }[]
+        subtotal: number
+        tax: number
+        taxRate: number
         total: number
         paymentMethod: PaymentMethod
         change?: number
@@ -91,6 +94,7 @@ export default function POSPage() {
         phone: string | null
         address: string | null
     } | null>(null)
+    const [taxRate, setTaxRate] = useState(0)  // Tax rate in percentage
     const [receiptSettings, setReceiptSettings] = useState<Omit<ReceiptSettings, 'store_id'>>(DEFAULT_RECEIPT_SETTINGS)
     const searchRef = useRef<HTMLInputElement>(null)
     const barcodeBufferRef = useRef('')
@@ -135,6 +139,8 @@ export default function POSPage() {
                     phone: settings.store_phone,
                     address: settings.store_address,
                 })
+                // Load tax rate from settings
+                setTaxRate(settings.tax_rate || 0)
             }
             if (receiptConfig) {
                 setReceiptSettings(receiptConfig)
@@ -370,8 +376,13 @@ export default function POSPage() {
         return cart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0)
     }
 
+    const calculateTax = () => {
+        if (taxRate <= 0) return 0
+        return Math.round(calculateSubtotal() * taxRate / 100)
+    }
+
     const calculateTotal = () => {
-        return calculateSubtotal() // No tax for now
+        return calculateSubtotal() + calculateTax()
     }
 
     const calculateChange = () => {
@@ -414,7 +425,7 @@ export default function POSPage() {
                 user_id: user?.id || '',
                 invoice_number: invoiceNumber,
                 subtotal: calculateSubtotal(),
-                tax: 0,
+                tax: calculateTax(),
                 discount: 0,
                 total: calculateTotal(),
                 payment_method: paymentMethod,
@@ -435,6 +446,9 @@ export default function POSPage() {
                     price: item.product.price,
                     subtotal: item.product.price * item.quantity,
                 })),
+                subtotal: calculateSubtotal(),
+                tax: calculateTax(),
+                taxRate: taxRate,
                 total: calculateTotal(),
                 paymentMethod: paymentMethod,
                 change: paymentMethod === 'cash' ? calculateChange() : undefined,
@@ -507,6 +521,10 @@ export default function POSPage() {
         })
 
         text += `\n━━━━━━━━━━━━━━━━━━\n`
+        if (lastTransactionData.taxRate > 0) {
+            text += `Subtotal: ${formatCurrency(lastTransactionData.subtotal)}\n`
+            text += `Pajak (${lastTransactionData.taxRate}%): ${formatCurrency(lastTransactionData.tax)}\n`
+        }
         text += `*TOTAL: ${formatCurrency(lastTransactionData.total)}*\n`
 
         if (receiptSettings.show_change && lastTransactionData.change !== undefined && lastTransactionData.change > 0) {
@@ -874,6 +892,10 @@ export default function POSPage() {
     <div class="divider"></div>
     ${itemsHtml}
     <div class="divider"></div>
+    ${lastTransactionData.taxRate > 0 ? `
+    <div class="item"><span>Subtotal</span><span>${formatCurrency(lastTransactionData.subtotal)}</span></div>
+    <div class="item"><span>Pajak (${lastTransactionData.taxRate}%)</span><span>${formatCurrency(lastTransactionData.tax)}</span></div>
+    ` : ''}
     <div class="total item"><span>TOTAL</span><span>${formatCurrency(lastTransactionData.total)}</span></div>
     ${footerHtml}
     <div class="divider"></div>
@@ -1116,6 +1138,18 @@ export default function POSPage() {
 
                     {cart.length > 0 && (
                         <div className={styles.cartFooter}>
+                            {taxRate > 0 && (
+                                <div className={styles.cartSummaryDetails}>
+                                    <div className={styles.summaryRow}>
+                                        <span>Subtotal</span>
+                                        <span>{formatCurrency(calculateSubtotal())}</span>
+                                    </div>
+                                    <div className={styles.summaryRow}>
+                                        <span>Pajak ({taxRate}%)</span>
+                                        <span>{formatCurrency(calculateTax())}</span>
+                                    </div>
+                                </div>
+                            )}
                             <div className={styles.cartTotal}>
                                 <span>Total</span>
                                 <span className={styles.totalAmount}>{formatCurrency(calculateTotal())}</span>
@@ -1146,8 +1180,23 @@ export default function POSPage() {
 
                             <div className={styles.paymentBody}>
                                 <div className={styles.paymentTotal}>
-                                    <span>Total Pembayaran</span>
-                                    <span className={styles.paymentAmount}>{formatCurrency(calculateTotal())}</span>
+                                    {taxRate > 0 && (
+                                        <div className={styles.paymentSummaryDetails}>
+                                            <div className={styles.paymentSummaryRow}>
+                                                <span>Subtotal</span>
+                                                <span>{formatCurrency(calculateSubtotal())}</span>
+                                            </div>
+                                            <div className={styles.paymentSummaryRow}>
+                                                <span>Pajak ({taxRate}%)</span>
+                                                <span>{formatCurrency(calculateTax())}</span>
+                                            </div>
+                                            <div className={styles.divider}></div>
+                                        </div>
+                                    )}
+                                    <div className={styles.grandTotal}>
+                                        <span>Total Pembayaran</span>
+                                        <span className={styles.paymentAmount}>{formatCurrency(calculateTotal())}</span>
+                                    </div>
                                 </div>
 
                                 <div className={styles.paymentMethods}>
