@@ -23,6 +23,7 @@ import {
 import { useAuth } from '@/hooks/useAuth'
 import { AuthProvider } from '@/hooks/useAuth'
 import styles from './layout.module.css'
+import { Footer } from '@/components/Footer'
 
 const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: ['owner', 'admin'] },
@@ -179,7 +180,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
                 <div className={styles.sidebarHeader}>
                     <div className={styles.logo}>
                         <Store size={24} />
-                        <span>POS UMKM</span>
+                        <span>POS SYSTEM UMKM</span>
                     </div>
                     <button
                         className={styles.closeButton}
@@ -283,6 +284,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
                 <main className={styles.content}>
                     {children}
                 </main>
+                <Footer />
             </div>
         </div>
     )
