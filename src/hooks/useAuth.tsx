@@ -113,14 +113,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return () => unsubscribe()
     }, [mounted])
 
+    // Generate store code helper
+    const generateStoreCode = () => {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+        let code = ''
+        for (let i = 0; i < 6; i++) {
+            code += chars.charAt(Math.floor(Math.random() * chars.length))
+        }
+        return code
+    }
+
     // Create user object from Firebase auth user
     const createUserFromAuth = async (authUser: FirebaseUser): Promise<User> => {
         // Fetch user data from Firestore to get store_id and store_code
-        const firestoreUser = await firestoreService.getUserById(authUser.uid)
+        let firestoreUser = await firestoreService.getUserById(authUser.uid)
 
         // For owners: store_code is the path identifier (e.g., "ABC123")
         // This is generated at registration and stored in user.store_code
-        const storeCode = firestoreUser?.store_code || null
+        let storeCode = firestoreUser?.store_code || null
+        const userRole = firestoreUser?.role || 'owner'
+
+        // AUTO-GENERATE store_code for users who don't have one
+        // This handles existing owners who were created before store_code was implemented
+        if (!storeCode && (userRole === 'owner' || !firestoreUser)) {
+            storeCode = generateStoreCode()
+
+            // Save/create user document with the generated store_code
+            try {
+                if (firestoreUser) {
+                    // Update existing user
+                    await firestoreService.updateUser(authUser.uid, { store_code: storeCode })
+                    console.log('[useAuth] Generated store_code for existing user:', storeCode)
+                } else {
+                    // Create new user document
+                    await firestoreService.createUserWithId(authUser.uid, {
+                        email: authUser.email || '',
+                        name: authUser.displayName || authUser.email?.split('@')[0] || 'User',
+                        role: 'owner',
+                        store_id: authUser.uid,
+                        store_code: storeCode,
+                        avatar_url: authUser.photoURL || null
+                    })
+                    console.log('[useAuth] Created user document with store_code:', storeCode)
+                    // Refresh firestoreUser after creation
+                    firestoreUser = await firestoreService.getUserById(authUser.uid)
+                }
+            } catch (error) {
+                console.error('[useAuth] Failed to save generated store_code:', error)
+            }
+        }
 
         return {
             id: authUser.uid,
