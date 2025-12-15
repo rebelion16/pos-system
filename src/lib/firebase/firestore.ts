@@ -773,22 +773,21 @@ export const firestoreService = {
         if (snapshot.empty) return null
 
         // Sort by settled_at descending and get the first (most recent)
-        const settlements = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-        })).sort((a, b) => {
-            const dateA = new Date(a.settled_at as string).getTime()
-            const dateB = new Date(b.settled_at as string).getTime()
+        const settlements = snapshot.docs.map(doc => {
+            const data = doc.data() as Record<string, unknown>
+            return {
+                id: doc.id,
+                settled_at: data.settled_at as string,
+                cashier_id: data.cashier_id as string | undefined,
+                cashier_name: data.cashier_name as string | undefined
+            }
+        }).sort((a, b) => {
+            const dateA = new Date(a.settled_at).getTime()
+            const dateB = new Date(b.settled_at).getTime()
             return dateB - dateA
         })
 
-        const latest = settlements[0]
-        return {
-            id: latest.id,
-            settled_at: latest.settled_at as string,
-            cashier_id: latest.cashier_id as string | undefined,
-            cashier_name: latest.cashier_name as string | undefined
-        }
+        return settlements[0]
     },
 
     createSettlement: async (data: {
