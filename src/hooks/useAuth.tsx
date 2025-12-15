@@ -118,13 +118,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Fetch user data from Firestore to get store_id
         const firestoreUser = await firestoreService.getUserById(authUser.uid)
 
+        // For owners, store_id is their own UID (used as the database path)
+        // For staff/admin, store_id is the owner's UID
+        const storeId = firestoreUser?.store_id || authUser.uid
+
         return {
             id: authUser.uid,
             email: authUser.email || '',
             name: authUser.displayName || authUser.email?.split('@')[0] || 'User',
             role: (firestoreUser?.role as 'owner' | 'admin' | 'cashier') || 'owner',
-            storeId: firestoreUser?.store_id || authUser.uid, // Default to own ID for new owners
-            storeCode: firestoreUser?.store_code || null,
+            storeId: storeId,
+            // storeCode is now the PERMANENT path identifier (owner's UID)
+            // This ensures path never changes even if friendly store_code in settings changes
+            storeCode: storeId,
             avatar_url: authUser.photoURL || null,
             email_verified: authUser.emailVerified,
             loginType: 'firebase'
@@ -248,20 +254,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     }
 
-    const signInAsCashier = async (username: string, password: string, storeCode: string) => {
+    const signInAsCashier = async (username: string, password: string, inputStoreCode: string) => {
         try {
-            const cashier = await firestoreService.verifyCashierLogin(username, password, storeCode)
+            // Step 1: Find the store owner by their store_code
+            const storeOwner = await firestoreService.getUserByStoreCode(inputStoreCode)
 
-            if (!cashier) {
-                return { error: new Error('Username, password, atau kode toko salah') }
+            if (!storeOwner) {
+                return { error: new Error('Kode toko tidak ditemukan. Pastikan kode toko benar.') }
             }
 
-            // Store cashier session with storeCode for proper restoration
+            // Step 2: Use owner's UID as the database path (permanent identifier)
+            const dbPath = storeOwner.id
+
+            // Step 3: Verify cashier login using the correct database path
+            const cashier = await firestoreService.verifyCashierLogin(username, password, dbPath)
+
+            if (!cashier) {
+                return { error: new Error('Username atau password kasir salah') }
+            }
+
+            // Store cashier session with the PERMANENT path identifier
             sessionStorage.setItem(CASHIER_SESSION_KEY, JSON.stringify({
                 id: cashier.id,
                 name: cashier.name,
                 username: cashier.username,
-                storeCode: storeCode,  // Use the storeCode from login
+                storeCode: dbPath,  // Use owner's UID as path (permanent)
             }))
 
             setUser({
@@ -269,8 +286,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 email: '',
                 name: cashier.name,
                 role: 'cashier',
-                storeId: storeCode,  // Use storeCode as storeId for backward compatibility
-                storeCode: storeCode,  // Primary identifier for nested collections
+                storeId: dbPath,  // Owner's UID for backward compatibility
+                storeCode: dbPath,  // Primary identifier for nested collections (owner's UID)
                 avatar_url: null,
                 email_verified: true,
                 loginType: 'cashier',

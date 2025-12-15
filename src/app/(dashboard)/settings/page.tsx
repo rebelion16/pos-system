@@ -42,7 +42,7 @@ type ThemeMode = 'light' | 'dark'
 type ThemeColor = 'blue' | 'green' | 'pink' | 'orange' | 'purple'
 
 export default function SettingsPage() {
-    const { storeCode } = useAuth()
+    const { storeCode, user } = useAuth()
     const [settings, setSettings] = useState<SettingsData | null>(null)
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
@@ -62,11 +62,11 @@ export default function SettingsPage() {
     const [webAppUrlInput, setWebAppUrlInput] = useState('')
 
     useEffect(() => {
-        if (!storeCode) return
+        if (!storeCode || !user) return
         fetchSettings()
         // Load saved Web App URL
         setWebAppUrlInput(getWebAppUrl())
-    }, [storeCode])
+    }, [storeCode, user])
 
     useEffect(() => {
         // Apply theme to document
@@ -75,11 +75,16 @@ export default function SettingsPage() {
     }, [themeMode, themeColor])
 
     const fetchSettings = async () => {
-        if (!storeCode) return
+        if (!storeCode || !user) return
         try {
-            const data = await firestoreService.getSettings(storeCode)
+            const [data, userData] = await Promise.all([
+                firestoreService.getSettings(storeCode),
+                firestoreService.getUserById(user.id)
+            ])
 
             if (!data) {
+                // If no settings yet, use store_code from user document
+                setStoreCodeInput(userData?.store_code || '')
                 setLoading(false)
                 return
             }
@@ -88,7 +93,8 @@ export default function SettingsPage() {
             setStoreName(data.store_name)
             setStoreAddress(data.store_address || '')
             setStorePhone(data.store_phone || '')
-            setStoreCodeInput(data.store_code || '')
+            // Use settings store_code if exists, otherwise fallback to user.store_code
+            setStoreCodeInput(data.store_code || userData?.store_code || '')
             setTaxRate(data.tax_rate)
             setPrinterEnabled(data.printer_enabled)
             setPrinterName(data.printer_name || '')
@@ -120,6 +126,12 @@ export default function SettingsPage() {
             }
 
             await firestoreService.updateSettings(storeCode!, settingsData)
+
+            // IMPORTANT: Also sync store_code to user document
+            // This is necessary because cashier login uses getUserByStoreCode which searches user.store_code
+            if (user && storeCodeInput) {
+                await firestoreService.updateUser(user.id, { store_code: storeCodeInput })
+            }
 
             setShowSaved(true)
             setTimeout(() => setShowSaved(false), 3000)
