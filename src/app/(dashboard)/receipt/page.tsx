@@ -44,7 +44,7 @@ const DEFAULT_SETTINGS: Omit<ReceiptSettings, 'store_id'> = {
 }
 
 export default function ReceiptSettingsPage() {
-    const { storeId } = useAuth()
+    const { storeCode } = useAuth()
     const [settings, setSettings] = useState<Omit<ReceiptSettings, 'store_id'>>(DEFAULT_SETTINGS)
     const [storeSettings, setStoreSettings] = useState<Settings | null>(null)
     const [loading, setLoading] = useState(true)
@@ -52,16 +52,16 @@ export default function ReceiptSettingsPage() {
     const [toast, setToast] = useState<string | null>(null)
 
     useEffect(() => {
-        if (!storeId) return
+        if (!storeCode) return
         fetchSettings()
-    }, [storeId])
+    }, [storeCode])
 
     const fetchSettings = async () => {
-        if (!storeId) return
+        if (!storeCode) return
         try {
             const [receiptData, storeData] = await Promise.all([
-                firestoreService.getReceiptSettings(storeId),
-                firestoreService.getSettings(storeId)
+                firestoreService.getReceiptSettings(storeCode),
+                firestoreService.getSettings(storeCode)
             ])
             if (receiptData) {
                 setSettings(receiptData)
@@ -77,10 +77,10 @@ export default function ReceiptSettingsPage() {
     }
 
     const handleSave = async () => {
-        if (!storeId) return
+        if (!storeCode) return
         setSaving(true)
         try {
-            await firestoreService.saveReceiptSettings(storeId, settings)
+            await firestoreService.saveReceiptSettings(storeCode, settings)
             showToast('Pengaturan struk berhasil disimpan!')
         } catch (err) {
             console.error('Error saving settings:', err)

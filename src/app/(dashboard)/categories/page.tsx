@@ -20,7 +20,7 @@ const colorOptions = [
 ]
 
 export default function CategoriesPage() {
-    const { storeId } = useAuth()
+    const { storeCode } = useAuth()
     const [categories, setCategories] = useState<Category[]>([])
     const [loading, setLoading] = useState(true)
     const [showModal, setShowModal] = useState(false)
@@ -34,14 +34,14 @@ export default function CategoriesPage() {
     const [error, setError] = useState('')
 
     useEffect(() => {
-        if (!storeId) return
+        if (!storeCode) return
         fetchCategories()
-    }, [storeId])
+    }, [storeCode])
 
     const fetchCategories = async () => {
-        if (!storeId) return
+        if (!storeCode) return
         try {
-            const data = await firestoreService.getCategories(storeId)
+            const data = await firestoreService.getCategories(storeCode)
             setCategories(data)
         } catch (error) {
             console.error('Error fetching categories:', error)
@@ -58,15 +58,14 @@ export default function CategoriesPage() {
         try {
             console.log('[Categories] Attempting to save:', formData)
             if (editingCategory) {
-                await firestoreService.updateCategory(editingCategory.id, {
+                await firestoreService.updateCategory(storeCode!, editingCategory.id, {
                     name: formData.name,
                     description: formData.description || null,
                     color: formData.color,
                 })
                 console.log('[Categories] Updated successfully')
             } else {
-                const result = await firestoreService.createCategory({
-                    store_id: storeId!,
+                const result = await firestoreService.createCategory(storeCode!, {
                     name: formData.name,
                     description: formData.description || null,
                     color: formData.color,
@@ -101,7 +100,7 @@ export default function CategoriesPage() {
         if (!confirm(`Hapus kategori "${category.name}"?`)) return
 
         try {
-            await firestoreService.deleteCategory(category.id)
+            await firestoreService.deleteCategory(storeCode!, category.id)
             fetchCategories()
         } catch (error) {
             console.error('Error deleting category:', error)

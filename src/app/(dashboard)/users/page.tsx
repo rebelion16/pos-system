@@ -28,9 +28,8 @@ type FormCashier = {
 }
 
 export default function UsersPage() {
-    const { storeId } = useAuth()
+    const { storeCode } = useAuth()
     const [cashiers, setCashiers] = useState<Cashier[]>([])
-    const [storeCode, setStoreCode] = useState<string | null>(null)
     const [loading, setLoading] = useState(true)
     const [showModal, setShowModal] = useState(false)
     const [editingCashier, setEditingCashier] = useState<Cashier | null>(null)
@@ -45,23 +44,16 @@ export default function UsersPage() {
     const [showPassword, setShowPassword] = useState(false)
 
     useEffect(() => {
-        if (!storeId) return
+        if (!storeCode) return
         fetchData()
-    }, [storeId])
+    }, [storeCode])
 
     const fetchData = async () => {
-        if (!storeId) return
+        if (!storeCode) return
         try {
-            // Get store settings first
-            const settings = await firestoreService.getSettings(storeId)
-            if (settings?.store_code) {
-                setStoreCode(settings.store_code)
-                // Get cashiers for this store
-                const data = await firestoreService.getCashiers(settings.store_code)
-                setCashiers(data)
-            } else {
-                setStoreCode(null)
-            }
+            // Get cashiers for this store using storeCode from context
+            const data = await firestoreService.getCashiers(storeCode)
+            setCashiers(data)
         } catch (error) {
             console.error('Error fetching data:', error)
         } finally {
@@ -128,18 +120,16 @@ export default function UsersPage() {
         setError('')
         try {
             if (editingCashier?.id) {
-                await firestoreService.updateCashier(editingCashier.id, {
+                await firestoreService.updateCashier(storeCode, editingCashier.id, {
                     name: name.trim(),
                     username: username.trim(),
                     ...(password ? { password } : {}),
                 })
             } else {
-                await firestoreService.createCashier({
+                await firestoreService.createCashier(storeCode, {
                     username: username.trim(),
                     password,
                     name: name.trim(),
-                    store_code: storeCode,
-                    store_id: storeId!,
                 })
             }
 
@@ -157,7 +147,7 @@ export default function UsersPage() {
         if (!confirm('Apakah Anda yakin ingin menghapus kasir ini?')) return
 
         try {
-            await firestoreService.deleteCashier(id)
+            await firestoreService.deleteCashier(storeCode!, id)
             setCashiers(cashiers.filter(c => c.id !== id))
         } catch (error) {
             console.error('Error deleting cashier:', error)
@@ -166,7 +156,7 @@ export default function UsersPage() {
 
     const toggleActive = async (cashier: Cashier) => {
         try {
-            await firestoreService.updateCashier(cashier.id, {
+            await firestoreService.updateCashier(storeCode!, cashier.id, {
                 is_active: !cashier.is_active
             })
             setCashiers(cashiers.map(c =>

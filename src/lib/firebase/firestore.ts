@@ -33,9 +33,8 @@ import {
     ReceiptSettings
 } from '@/types/database'
 
-// Collection names
-const COLLECTIONS = {
-    users: 'users',
+// Collection names (under stores/{storeCode}/)
+const STORE_COLLECTIONS = {
     categories: 'categories',
     products: 'products',
     suppliers: 'suppliers',
@@ -45,6 +44,26 @@ const COLLECTIONS = {
     settings: 'settings',
     cashiers: 'cashiers',
     settlements: 'settlements',
+    bankAccounts: 'bank_accounts',
+    qrisConfig: 'qris_config',
+    receiptSettings: 'receipt_settings',
+}
+
+// Global collections (not store-specific)
+const GLOBAL_COLLECTIONS = {
+    users: 'users',
+}
+
+// Helper to get store collection path
+const getStoreCollection = (storeCode: string, collectionName: string) => {
+    if (!db) throw new Error('Firestore not configured')
+    return collection(db, 'stores', storeCode, collectionName)
+}
+
+// Helper to get store document path
+const getStoreDoc = (storeCode: string, collectionName: string, docId: string) => {
+    if (!db) throw new Error('Firestore not configured')
+    return doc(db, 'stores', storeCode, collectionName, docId)
 }
 
 // Helper to generate UUID
@@ -78,16 +97,16 @@ const convertDoc = <T>(doc: { id: string; data: () => Record<string, unknown> })
 export const firestoreService = {
     isConfigured: isFirebaseConfigured && db !== null,
 
-    // ==================== USERS ====================
+    // ==================== USERS (GLOBAL) ====================
     getUsers: async (): Promise<User[]> => {
         if (!db) return []
-        const snapshot = await getDocs(collection(db, COLLECTIONS.users))
+        const snapshot = await getDocs(collection(db, GLOBAL_COLLECTIONS.users))
         return snapshot.docs.map(doc => convertDoc<User>(doc))
     },
 
     getUserById: async (id: string): Promise<User | null> => {
         if (!db) return null
-        const docRef = doc(db, COLLECTIONS.users, id)
+        const docRef = doc(db, GLOBAL_COLLECTIONS.users, id)
         const docSnap = await getDoc(docRef)
         if (!docSnap.exists()) return null
         return convertDoc<User>(docSnap)
@@ -95,7 +114,7 @@ export const firestoreService = {
 
     getUserByEmail: async (email: string): Promise<User | null> => {
         if (!db) return null
-        const q = query(collection(db, COLLECTIONS.users), where('email', '==', email))
+        const q = query(collection(db, GLOBAL_COLLECTIONS.users), where('email', '==', email))
         const snapshot = await getDocs(q)
         if (snapshot.empty) return null
         return convertDoc<User>(snapshot.docs[0])
@@ -103,7 +122,7 @@ export const firestoreService = {
 
     getUserByStoreCode: async (storeCode: string): Promise<User | null> => {
         if (!db) return null
-        const q = query(collection(db, COLLECTIONS.users), where('store_code', '==', storeCode))
+        const q = query(collection(db, GLOBAL_COLLECTIONS.users), where('store_code', '==', storeCode))
         const snapshot = await getDocs(q)
         if (snapshot.empty) return null
         return convertDoc<User>(snapshot.docs[0])
@@ -112,7 +131,7 @@ export const firestoreService = {
     createUser: async (userData: Omit<User, 'id' | 'created_at' | 'updated_at'>): Promise<User> => {
         if (!db) throw new Error('Firestore not configured')
         const now = Timestamp.now()
-        const docRef = await addDoc(collection(db, COLLECTIONS.users), {
+        const docRef = await addDoc(collection(db, GLOBAL_COLLECTIONS.users), {
             ...userData,
             created_at: now,
             updated_at: now,
@@ -125,11 +144,10 @@ export const firestoreService = {
         }
     },
 
-    // Create user with specific ID (for matching Firebase Auth UID)
     createUserWithId: async (id: string, userData: Omit<User, 'id' | 'created_at' | 'updated_at'>): Promise<User> => {
         if (!db) throw new Error('Firestore not configured')
         const now = Timestamp.now()
-        const docRef = doc(db, COLLECTIONS.users, id)
+        const docRef = doc(db, GLOBAL_COLLECTIONS.users, id)
         await import('firebase/firestore').then(({ setDoc }) =>
             setDoc(docRef, {
                 ...userData,
@@ -147,7 +165,7 @@ export const firestoreService = {
 
     updateUser: async (id: string, data: Partial<User>): Promise<void> => {
         if (!db) throw new Error('Firestore not configured')
-        const docRef = doc(db, COLLECTIONS.users, id)
+        const docRef = doc(db, GLOBAL_COLLECTIONS.users, id)
         await updateDoc(docRef, {
             ...data,
             updated_at: Timestamp.now(),
@@ -156,33 +174,27 @@ export const firestoreService = {
 
     deleteUser: async (id: string): Promise<void> => {
         if (!db) throw new Error('Firestore not configured')
-        await deleteDoc(doc(db, COLLECTIONS.users, id))
+        await deleteDoc(doc(db, GLOBAL_COLLECTIONS.users, id))
     },
 
     // ==================== CATEGORIES ====================
-    getCategories: async (storeId?: string): Promise<Category[]> => {
-        if (!db) return []
-        if (storeId) {
-            const q = query(collection(db, COLLECTIONS.categories), where('store_id', '==', storeId))
-            const snapshot = await getDocs(q)
-            return snapshot.docs.map(doc => convertDoc<Category>(doc))
-        }
-        const snapshot = await getDocs(collection(db, COLLECTIONS.categories))
+    getCategories: async (storeCode: string): Promise<Category[]> => {
+        if (!db || !storeCode) return []
+        const snapshot = await getDocs(getStoreCollection(storeCode, STORE_COLLECTIONS.categories))
         return snapshot.docs.map(doc => convertDoc<Category>(doc))
     },
 
-    getCategoryById: async (id: string): Promise<Category | null> => {
-        if (!db) return null
-        const docRef = doc(db, COLLECTIONS.categories, id)
-        const docSnap = await getDoc(docRef)
+    getCategoryById: async (storeCode: string, id: string): Promise<Category | null> => {
+        if (!db || !storeCode) return null
+        const docSnap = await getDoc(getStoreDoc(storeCode, STORE_COLLECTIONS.categories, id))
         if (!docSnap.exists()) return null
         return convertDoc<Category>(docSnap)
     },
 
-    createCategory: async (data: Omit<Category, 'id' | 'created_at' | 'updated_at'>): Promise<Category> => {
-        if (!db) throw new Error('Firestore not configured')
+    createCategory: async (storeCode: string, data: Omit<Category, 'id' | 'created_at' | 'updated_at' | 'store_id'>): Promise<Category> => {
+        if (!db || !storeCode) throw new Error('Firestore not configured')
         const now = Timestamp.now()
-        const docRef = await addDoc(collection(db, COLLECTIONS.categories), {
+        const docRef = await addDoc(getStoreCollection(storeCode, STORE_COLLECTIONS.categories), {
             ...data,
             created_at: now,
             updated_at: now,
@@ -190,68 +202,62 @@ export const firestoreService = {
         return {
             ...data,
             id: docRef.id,
+            store_id: storeCode,
             created_at: now.toDate().toISOString(),
             updated_at: now.toDate().toISOString(),
         }
     },
 
-    updateCategory: async (id: string, data: Partial<Category>): Promise<void> => {
-        if (!db) throw new Error('Firestore not configured')
-        const docRef = doc(db, COLLECTIONS.categories, id)
-        await updateDoc(docRef, {
+    updateCategory: async (storeCode: string, id: string, data: Partial<Category>): Promise<void> => {
+        if (!db || !storeCode) throw new Error('Firestore not configured')
+        await updateDoc(getStoreDoc(storeCode, STORE_COLLECTIONS.categories, id), {
             ...data,
             updated_at: Timestamp.now(),
         })
     },
 
-    deleteCategory: async (id: string): Promise<void> => {
-        if (!db) throw new Error('Firestore not configured')
-        await deleteDoc(doc(db, COLLECTIONS.categories, id))
+    deleteCategory: async (storeCode: string, id: string): Promise<void> => {
+        if (!db || !storeCode) throw new Error('Firestore not configured')
+        await deleteDoc(getStoreDoc(storeCode, STORE_COLLECTIONS.categories, id))
     },
 
     // ==================== PRODUCTS ====================
-    getProducts: async (storeId?: string): Promise<Product[]> => {
-        if (!db) return []
-        if (storeId) {
-            const q = query(collection(db, COLLECTIONS.products), where('store_id', '==', storeId))
-            const snapshot = await getDocs(q)
-            return snapshot.docs.map(doc => convertDoc<Product>(doc))
-        }
-        const snapshot = await getDocs(collection(db, COLLECTIONS.products))
+    getProducts: async (storeCode: string): Promise<Product[]> => {
+        if (!db || !storeCode) return []
+        const snapshot = await getDocs(getStoreCollection(storeCode, STORE_COLLECTIONS.products))
         return snapshot.docs.map(doc => convertDoc<Product>(doc))
     },
 
-    getProductsWithRelations: async (storeId?: string): Promise<ProductWithRelations[]> => {
-        if (!db) return []
+    getProductsWithRelations: async (storeCode: string): Promise<ProductWithRelations[]> => {
+        if (!db || !storeCode) return []
         const [products, categories, suppliers] = await Promise.all([
-            firestoreService.getProducts(storeId),
-            firestoreService.getCategories(storeId),
-            firestoreService.getSuppliers(storeId),
+            firestoreService.getProducts(storeCode),
+            firestoreService.getCategories(storeCode),
+            firestoreService.getSuppliers(storeCode),
         ])
-        return products.map(p => ({
-            ...p,
-            category: categories.find(c => c.id === p.category_id) || null,
-            supplier: suppliers.find(s => s.id === p.supplier_id) || null,
+        return products.map(product => ({
+            ...product,
+            category: categories.find(c => c.id === product.category_id) || null,
+            supplier: suppliers.find(s => s.id === product.supplier_id) || null,
         }))
     },
 
-    getActiveProductsWithRelations: async (storeId?: string): Promise<ProductWithRelations[]> => {
-        const products = await firestoreService.getProductsWithRelations(storeId)
-        return products.filter(p => p.is_active && p.stock > 0)
+    getActiveProductsWithRelations: async (storeCode: string): Promise<ProductWithRelations[]> => {
+        const products = await firestoreService.getProductsWithRelations(storeCode)
+        return products.filter(p => p.is_active)
     },
 
-    getProductById: async (id: string): Promise<Product | null> => {
-        if (!db) return null
-        const docRef = doc(db, COLLECTIONS.products, id)
-        const docSnap = await getDoc(docRef)
+    getProductById: async (storeCode: string, id: string): Promise<Product | null> => {
+        if (!db || !storeCode) return null
+        const docSnap = await getDoc(getStoreDoc(storeCode, STORE_COLLECTIONS.products, id))
         if (!docSnap.exists()) return null
         return convertDoc<Product>(docSnap)
     },
 
-    createProduct: async (data: Omit<Product, 'id' | 'created_at' | 'updated_at'>): Promise<Product> => {
-        if (!db) throw new Error('Firestore not configured')
+    createProduct: async (storeCode: string, data: Omit<Product, 'id' | 'created_at' | 'updated_at' | 'store_id'>): Promise<Product> => {
+        if (!db || !storeCode) throw new Error('Firestore not configured')
         const now = Timestamp.now()
-        const docRef = await addDoc(collection(db, COLLECTIONS.products), {
+        const docRef = await addDoc(getStoreCollection(storeCode, STORE_COLLECTIONS.products), {
             ...data,
             created_at: now,
             updated_at: now,
@@ -259,58 +265,51 @@ export const firestoreService = {
         return {
             ...data,
             id: docRef.id,
+            store_id: storeCode,
             created_at: now.toDate().toISOString(),
             updated_at: now.toDate().toISOString(),
         }
     },
 
-    updateProduct: async (id: string, data: Partial<Product>): Promise<void> => {
-        if (!db) throw new Error('Firestore not configured')
-        const docRef = doc(db, COLLECTIONS.products, id)
-        await updateDoc(docRef, {
+    updateProduct: async (storeCode: string, id: string, data: Partial<Product>): Promise<void> => {
+        if (!db || !storeCode) throw new Error('Firestore not configured')
+        await updateDoc(getStoreDoc(storeCode, STORE_COLLECTIONS.products, id), {
             ...data,
             updated_at: Timestamp.now(),
         })
     },
 
-    deleteProduct: async (id: string): Promise<void> => {
-        if (!db) throw new Error('Firestore not configured')
-        await deleteDoc(doc(db, COLLECTIONS.products, id))
+    deleteProduct: async (storeCode: string, id: string): Promise<void> => {
+        if (!db || !storeCode) throw new Error('Firestore not configured')
+        await deleteDoc(getStoreDoc(storeCode, STORE_COLLECTIONS.products, id))
     },
 
-    updateProductStock: async (id: string, quantityChange: number): Promise<void> => {
-        if (!db) throw new Error('Firestore not configured')
-        const product = await firestoreService.getProductById(id)
-        if (!product) throw new Error('Product not found')
-        await firestoreService.updateProduct(id, {
-            stock: product.stock + quantityChange,
-        })
+    updateProductStock: async (storeCode: string, id: string, quantityChange: number): Promise<void> => {
+        if (!db || !storeCode) throw new Error('Firestore not configured')
+        const product = await firestoreService.getProductById(storeCode, id)
+        if (product) {
+            await firestoreService.updateProduct(storeCode, id, { stock: product.stock + quantityChange })
+        }
     },
 
     // ==================== SUPPLIERS ====================
-    getSuppliers: async (storeId?: string): Promise<Supplier[]> => {
-        if (!db) return []
-        if (storeId) {
-            const q = query(collection(db, COLLECTIONS.suppliers), where('store_id', '==', storeId))
-            const snapshot = await getDocs(q)
-            return snapshot.docs.map(doc => convertDoc<Supplier>(doc))
-        }
-        const snapshot = await getDocs(collection(db, COLLECTIONS.suppliers))
+    getSuppliers: async (storeCode: string): Promise<Supplier[]> => {
+        if (!db || !storeCode) return []
+        const snapshot = await getDocs(getStoreCollection(storeCode, STORE_COLLECTIONS.suppliers))
         return snapshot.docs.map(doc => convertDoc<Supplier>(doc))
     },
 
-    getSupplierById: async (id: string): Promise<Supplier | null> => {
-        if (!db) return null
-        const docRef = doc(db, COLLECTIONS.suppliers, id)
-        const docSnap = await getDoc(docRef)
+    getSupplierById: async (storeCode: string, id: string): Promise<Supplier | null> => {
+        if (!db || !storeCode) return null
+        const docSnap = await getDoc(getStoreDoc(storeCode, STORE_COLLECTIONS.suppliers, id))
         if (!docSnap.exists()) return null
         return convertDoc<Supplier>(docSnap)
     },
 
-    createSupplier: async (data: Omit<Supplier, 'id' | 'created_at' | 'updated_at'>): Promise<Supplier> => {
-        if (!db) throw new Error('Firestore not configured')
+    createSupplier: async (storeCode: string, data: Omit<Supplier, 'id' | 'created_at' | 'updated_at' | 'store_id'>): Promise<Supplier> => {
+        if (!db || !storeCode) throw new Error('Firestore not configured')
         const now = Timestamp.now()
-        const docRef = await addDoc(collection(db, COLLECTIONS.suppliers), {
+        const docRef = await addDoc(getStoreCollection(storeCode, STORE_COLLECTIONS.suppliers), {
             ...data,
             created_at: now,
             updated_at: now,
@@ -318,206 +317,183 @@ export const firestoreService = {
         return {
             ...data,
             id: docRef.id,
+            store_id: storeCode,
             created_at: now.toDate().toISOString(),
             updated_at: now.toDate().toISOString(),
         }
     },
 
-    updateSupplier: async (id: string, data: Partial<Supplier>): Promise<void> => {
-        if (!db) throw new Error('Firestore not configured')
-        const docRef = doc(db, COLLECTIONS.suppliers, id)
-        await updateDoc(docRef, {
+    updateSupplier: async (storeCode: string, id: string, data: Partial<Supplier>): Promise<void> => {
+        if (!db || !storeCode) throw new Error('Firestore not configured')
+        await updateDoc(getStoreDoc(storeCode, STORE_COLLECTIONS.suppliers, id), {
             ...data,
             updated_at: Timestamp.now(),
         })
     },
 
-    deleteSupplier: async (id: string): Promise<void> => {
-        if (!db) throw new Error('Firestore not configured')
-        await deleteDoc(doc(db, COLLECTIONS.suppliers, id))
+    deleteSupplier: async (storeCode: string, id: string): Promise<void> => {
+        if (!db || !storeCode) throw new Error('Firestore not configured')
+        await deleteDoc(getStoreDoc(storeCode, STORE_COLLECTIONS.suppliers, id))
     },
 
     // ==================== TRANSACTIONS ====================
-    getTransactions: async (storeId?: string): Promise<Transaction[]> => {
-        if (!db) return []
-        if (storeId) {
-            const q = query(collection(db, COLLECTIONS.transactions), where('store_id', '==', storeId))
-            const snapshot = await getDocs(q)
-            return snapshot.docs.map(doc => convertDoc<Transaction>(doc))
-        }
-        const snapshot = await getDocs(collection(db, COLLECTIONS.transactions))
-        return snapshot.docs.map(doc => convertDoc<Transaction>(doc))
+    getTransactions: async (storeCode: string): Promise<Transaction[]> => {
+        if (!db || !storeCode) return []
+        const snapshot = await getDocs(getStoreCollection(storeCode, STORE_COLLECTIONS.transactions))
+        return snapshot.docs
+            .map(doc => convertDoc<Transaction>(doc))
+            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     },
 
-    getTransactionItems: async (storeId?: string): Promise<TransactionItem[]> => {
-        if (!db) return []
-        // Note: TransactionItems inherit storeId from their parent transaction
-        // For now, fetch all and let calling code filter if needed
-        const snapshot = await getDocs(collection(db, COLLECTIONS.transactionItems))
+    getTransactionItems: async (storeCode: string): Promise<TransactionItem[]> => {
+        if (!db || !storeCode) return []
+        const snapshot = await getDocs(getStoreCollection(storeCode, STORE_COLLECTIONS.transactionItems))
         return snapshot.docs.map(doc => convertDoc<TransactionItem>(doc))
     },
 
-    getTodayTransactions: async (storeId?: string): Promise<Transaction[]> => {
-        if (!db) return []
+    getTodayTransactions: async (storeCode: string): Promise<Transaction[]> => {
+        if (!db || !storeCode) return []
+        const transactions = await firestoreService.getTransactions(storeCode)
         const today = new Date()
-        today.setHours(0, 0, 0, 0)
-
-        // If storeId provided, filter by store_id as well
-        if (storeId) {
-            const q = query(
-                collection(db, COLLECTIONS.transactions),
-                where('store_id', '==', storeId),
-                where('created_at', '>=', Timestamp.fromDate(today))
-            )
-            const snapshot = await getDocs(q)
-            return snapshot.docs.map(doc => convertDoc<Transaction>(doc))
-        }
-
-        const q = query(
-            collection(db, COLLECTIONS.transactions),
-            where('created_at', '>=', Timestamp.fromDate(today))
-        )
-        const snapshot = await getDocs(q)
-        return snapshot.docs.map(doc => convertDoc<Transaction>(doc))
+        const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+        return transactions.filter(tx => new Date(tx.created_at) >= startOfDay)
     },
 
     createTransaction: async (
-        data: Omit<Transaction, 'id' | 'created_at'>,
-        items: Omit<TransactionItem, 'id' | 'transaction_id' | 'created_at'>[]
+        storeCode: string,
+        data: Omit<Transaction, 'id' | 'created_at' | 'store_id'>,
+        items: Omit<TransactionItem, 'id' | 'transaction_id' | 'created_at' | 'store_id'>[]
     ): Promise<Transaction> => {
-        if (!db) throw new Error('Firestore not configured')
+        if (!db || !storeCode) throw new Error('Firestore not configured')
         const now = Timestamp.now()
+        const batch = writeBatch(db)
 
-        // Create transaction
-        const transactionRef = await addDoc(collection(db, COLLECTIONS.transactions), {
+        // Create transaction document
+        const txRef = doc(getStoreCollection(storeCode, STORE_COLLECTIONS.transactions))
+        batch.set(txRef, {
             ...data,
             created_at: now,
         })
 
         // Create transaction items and update stock
-        const batch = writeBatch(db)
         for (const item of items) {
-            const itemRef = doc(collection(db, COLLECTIONS.transactionItems))
+            const itemRef = doc(getStoreCollection(storeCode, STORE_COLLECTIONS.transactionItems))
             batch.set(itemRef, {
                 ...item,
-                transaction_id: transactionRef.id,
+                transaction_id: txRef.id,
                 created_at: now,
             })
 
             // Update product stock
-            const productRef = doc(db, COLLECTIONS.products, item.product_id)
+            const productRef = getStoreDoc(storeCode, STORE_COLLECTIONS.products, item.product_id)
             const productSnap = await getDoc(productRef)
             if (productSnap.exists()) {
-                const currentStock = productSnap.data().stock || 0
+                const productData = productSnap.data()
                 batch.update(productRef, {
-                    stock: currentStock - item.quantity,
+                    stock: (productData.stock || 0) - item.quantity,
                     updated_at: now,
                 })
             }
         }
+
         await batch.commit()
 
         return {
             ...data,
-            id: transactionRef.id,
+            id: txRef.id,
+            store_id: storeCode,
+            created_at: now.toDate().toISOString(),
+        }
+    },
+
+    generateInvoiceNumber: (): string => {
+        const now = new Date()
+        const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '')
+        const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, '')
+        const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0')
+        return `INV-${dateStr}-${timeStr}-${random}`
+    },
+
+    // ==================== STOCK HISTORY ====================
+    getStockHistory: async (storeCode: string): Promise<StockHistory[]> => {
+        if (!db || !storeCode) return []
+        const snapshot = await getDocs(getStoreCollection(storeCode, STORE_COLLECTIONS.stockHistory))
+        return snapshot.docs
+            .map(doc => convertDoc<StockHistory>(doc))
+            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    },
+
+    addStockHistory: async (storeCode: string, data: Omit<StockHistory, 'id' | 'created_at' | 'store_id'>): Promise<StockHistory> => {
+        if (!db || !storeCode) throw new Error('Firestore not configured')
+        const now = Timestamp.now()
+        const docRef = await addDoc(getStoreCollection(storeCode, STORE_COLLECTIONS.stockHistory), {
+            ...data,
+            created_at: now,
+        })
+        return {
+            ...data,
+            id: docRef.id,
             created_at: now.toDate().toISOString(),
         }
     },
 
     // ==================== SETTINGS ====================
-    getSettings: async (storeId?: string): Promise<Settings | null> => {
-        if (!db) return null
-        if (storeId) {
-            const q = query(collection(db, COLLECTIONS.settings), where('store_id', '==', storeId))
-            const snapshot = await getDocs(q)
-            if (snapshot.empty) return null
-            return convertDoc<Settings>(snapshot.docs[0])
-        }
-        const snapshot = await getDocs(collection(db, COLLECTIONS.settings))
+    getSettings: async (storeCode: string): Promise<Settings | null> => {
+        if (!db || !storeCode) return null
+        const snapshot = await getDocs(getStoreCollection(storeCode, STORE_COLLECTIONS.settings))
         if (snapshot.empty) return null
         return convertDoc<Settings>(snapshot.docs[0])
     },
 
-    updateSettings: async (storeId: string, data: Partial<Settings>): Promise<void> => {
-        if (!db) throw new Error('Firestore not configured')
-
-        // Find existing settings for this store
-        const q = query(collection(db, COLLECTIONS.settings), where('store_id', '==', storeId))
-        const snapshot = await getDocs(q)
+    updateSettings: async (storeCode: string, data: Partial<Settings>): Promise<void> => {
+        if (!db || !storeCode) throw new Error('Firestore not configured')
+        const snapshot = await getDocs(getStoreCollection(storeCode, STORE_COLLECTIONS.settings))
 
         if (snapshot.empty) {
-            // Create settings if not exists
-            await addDoc(collection(db, COLLECTIONS.settings), {
-                store_id: storeId,
-                store_name: 'Toko Saya',
-                store_address: '',
-                store_phone: '',
-                store_logo: null,
-                store_code: null,
-                tax_rate: 0,
-                currency: 'IDR',
-                theme: 'light-blue',
-                printer_enabled: false,
-                printer_name: null,
+            // Create new settings
+            await addDoc(getStoreCollection(storeCode, STORE_COLLECTIONS.settings), {
                 ...data,
+                store_id: storeCode,
                 created_at: Timestamp.now(),
                 updated_at: Timestamp.now(),
             })
         } else {
-            const docRef = doc(db, COLLECTIONS.settings, snapshot.docs[0].id)
-            await updateDoc(docRef, {
+            // Update existing settings
+            await updateDoc(snapshot.docs[0].ref, {
                 ...data,
                 updated_at: Timestamp.now(),
             })
         }
     },
 
-    // ==================== CASHIERS ====================
-    // Simple hash function for password (for demo purposes)
-    hashPassword: (password: string): string => {
-        let hash = 0
-        for (let i = 0; i < password.length; i++) {
-            const char = password.charCodeAt(i)
-            hash = ((hash << 5) - hash) + char
-            hash = hash & hash
-        }
-        return 'HASH_' + Math.abs(hash).toString(16).padStart(8, '0')
+    getSettingsByStoreCode: async (storeCode: string): Promise<Settings | null> => {
+        return firestoreService.getSettings(storeCode)
     },
 
-    getCashiers: async (storeCode?: string): Promise<Cashier[]> => {
-        if (!db) return []
-        let q
-        if (storeCode) {
-            q = query(collection(db, COLLECTIONS.cashiers), where('store_code', '==', storeCode))
-        } else {
-            q = collection(db, COLLECTIONS.cashiers)
-        }
-        const snapshot = await getDocs(q)
+    // ==================== CASHIERS ====================
+    getCashiers: async (storeCode: string): Promise<Cashier[]> => {
+        if (!db || !storeCode) return []
+        const snapshot = await getDocs(getStoreCollection(storeCode, STORE_COLLECTIONS.cashiers))
         return snapshot.docs.map(doc => convertDoc<Cashier>(doc))
     },
 
-    getCashierById: async (id: string): Promise<Cashier | null> => {
-        if (!db) return null
-        const docRef = doc(db, COLLECTIONS.cashiers, id)
-        const docSnap = await getDoc(docRef)
+    getCashierById: async (storeCode: string, id: string): Promise<Cashier | null> => {
+        if (!db || !storeCode) return null
+        const docSnap = await getDoc(getStoreDoc(storeCode, STORE_COLLECTIONS.cashiers, id))
         if (!docSnap.exists()) return null
         return convertDoc<Cashier>(docSnap)
     },
 
     getCashierByUsername: async (username: string, storeCode: string): Promise<Cashier | null> => {
-        if (!db) return null
-        const q = query(
-            collection(db, COLLECTIONS.cashiers),
-            where('username', '==', username),
-            where('store_code', '==', storeCode)
-        )
-        const snapshot = await getDocs(q)
-        if (snapshot.empty) return null
-        return convertDoc<Cashier>(snapshot.docs[0])
+        if (!db || !storeCode) return null
+        const snapshot = await getDocs(getStoreCollection(storeCode, STORE_COLLECTIONS.cashiers))
+        const cashier = snapshot.docs.find(doc => doc.data().username === username)
+        if (!cashier) return null
+        return convertDoc<Cashier>(cashier)
     },
 
     verifyCashierLogin: async (username: string, password: string, storeCode: string): Promise<Cashier | null> => {
-        if (!db) return null
+        if (!db || !storeCode) return null
         const cashier = await firestoreService.getCashierByUsername(username, storeCode)
         if (!cashier) return null
         if (!cashier.is_active) return null
@@ -526,24 +502,31 @@ export const firestoreService = {
         return cashier
     },
 
-    createCashier: async (data: { username: string; password: string; name: string; store_code: string; store_id: string }): Promise<Cashier> => {
-        if (!db) throw new Error('Firestore not configured')
-
-        // Check if username already exists for this store
-        const existing = await firestoreService.getCashierByUsername(data.username, data.store_code)
-        if (existing) {
-            throw new Error('Username sudah digunakan')
+    hashPassword: (password: string): string => {
+        let hash = 0
+        for (let i = 0; i < password.length; i++) {
+            const char = password.charCodeAt(i)
+            hash = ((hash << 5) - hash) + char
+            hash = hash & hash
         }
+        return Math.abs(hash).toString(16).padStart(8, '0')
+    },
+
+    createCashier: async (storeCode: string, data: { username: string; password: string; name: string }): Promise<Cashier> => {
+        if (!db || !storeCode) throw new Error('Firestore not configured')
+
+        // Check if username already exists
+        const existing = await firestoreService.getCashierByUsername(data.username, storeCode)
+        if (existing) throw new Error('Username sudah digunakan')
 
         const now = Timestamp.now()
         const passwordHash = firestoreService.hashPassword(data.password)
-
-        const docRef = await addDoc(collection(db, COLLECTIONS.cashiers), {
+        const docRef = await addDoc(getStoreCollection(storeCode, STORE_COLLECTIONS.cashiers), {
             username: data.username,
             password_hash: passwordHash,
             name: data.name,
-            store_code: data.store_code,
-            store_id: data.store_id,
+            store_code: storeCode,
+            store_id: storeCode,
             is_active: true,
             created_at: now,
             updated_at: now,
@@ -554,265 +537,151 @@ export const firestoreService = {
             username: data.username,
             password_hash: passwordHash,
             name: data.name,
-            store_code: data.store_code,
-            store_id: data.store_id,
+            store_code: storeCode,
+            store_id: storeCode,
             is_active: true,
             created_at: now.toDate().toISOString(),
             updated_at: now.toDate().toISOString(),
         }
     },
 
-    updateCashier: async (id: string, data: { name?: string; username?: string; password?: string; is_active?: boolean }): Promise<void> => {
-        if (!db) throw new Error('Firestore not configured')
-        const updateData: Record<string, unknown> = {
-            updated_at: Timestamp.now(),
+    updateCashier: async (storeCode: string, id: string, data: Partial<Cashier & { password?: string }>): Promise<void> => {
+        if (!db || !storeCode) throw new Error('Firestore not configured')
+        const updateData: Record<string, unknown> = { ...data, updated_at: Timestamp.now() }
+        if (data.password) {
+            updateData.password_hash = firestoreService.hashPassword(data.password)
+            delete updateData.password
         }
-        if (data.name !== undefined) updateData.name = data.name
-        if (data.username !== undefined) updateData.username = data.username
-        if (data.password !== undefined) updateData.password_hash = firestoreService.hashPassword(data.password)
-        if (data.is_active !== undefined) updateData.is_active = data.is_active
-
-        const docRef = doc(db, COLLECTIONS.cashiers, id)
-        await updateDoc(docRef, updateData)
+        await updateDoc(getStoreDoc(storeCode, STORE_COLLECTIONS.cashiers, id), updateData)
     },
 
-    deleteCashier: async (id: string): Promise<void> => {
-        if (!db) throw new Error('Firestore not configured')
-        await deleteDoc(doc(db, COLLECTIONS.cashiers, id))
-    },
-
-    // ==================== UTILITIES ====================
-    generateInvoiceNumber: (): string => {
-        const date = new Date()
-        const year = date.getFullYear().toString().slice(-2)
-        const month = (date.getMonth() + 1).toString().padStart(2, '0')
-        const day = date.getDate().toString().padStart(2, '0')
-        const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0')
-        return `INV${year}${month}${day}${random}`
-    },
-
-    // Initialize demo data - DEPRECATED with multi-tenancy
-    // Each store now has its own isolated data
-    initializeDemoData: async (): Promise<void> => {
-        // No longer needed with multi-tenancy
-        // Each store owner creates their own data
-        return
-    },
-
-    // Delete all products and transactions (sales data reset)
-    deleteAllProductsAndTransactions: async (): Promise<{ productsDeleted: number; transactionsDeleted: number }> => {
-        if (!db) throw new Error('Firestore not configured')
-
-        let productsDeleted = 0
-        let transactionsDeleted = 0
-
-        // Delete all products
-        const productsSnapshot = await getDocs(collection(db, COLLECTIONS.products))
-        for (const docSnap of productsSnapshot.docs) {
-            await deleteDoc(doc(db, COLLECTIONS.products, docSnap.id))
-            productsDeleted++
-        }
-
-        // Delete all transactions
-        const transactionsSnapshot = await getDocs(collection(db, COLLECTIONS.transactions))
-        for (const docSnap of transactionsSnapshot.docs) {
-            await deleteDoc(doc(db, COLLECTIONS.transactions, docSnap.id))
-            transactionsDeleted++
-        }
-
-        // Delete all transaction items
-        const itemsSnapshot = await getDocs(collection(db, COLLECTIONS.transactionItems))
-        for (const docSnap of itemsSnapshot.docs) {
-            await deleteDoc(doc(db, COLLECTIONS.transactionItems, docSnap.id))
-        }
-
-        // Delete all stock history
-        const historySnapshot = await getDocs(collection(db, COLLECTIONS.stockHistory))
-        for (const docSnap of historySnapshot.docs) {
-            await deleteDoc(doc(db, COLLECTIONS.stockHistory, docSnap.id))
-        }
-
-        return { productsDeleted, transactionsDeleted }
+    deleteCashier: async (storeCode: string, id: string): Promise<void> => {
+        if (!db || !storeCode) throw new Error('Firestore not configured')
+        await deleteDoc(getStoreDoc(storeCode, STORE_COLLECTIONS.cashiers, id))
     },
 
     // ==================== BANK ACCOUNTS ====================
-    getBankAccounts: async (storeId?: string): Promise<BankAccount[]> => {
-        if (!db) return []
-        if (storeId) {
-            const q = query(
-                collection(db, 'bank_accounts'),
-                where('store_id', '==', storeId)
-            )
-            const snapshot = await getDocs(q)
-            return snapshot.docs
-                .map(doc => convertDoc<BankAccount>(doc))
-                .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-        }
-        const snapshot = await getDocs(
-            query(collection(db, 'bank_accounts'), orderBy('created_at', 'desc'))
-        )
-        return snapshot.docs.map(doc => convertDoc<BankAccount>(doc))
+    getBankAccounts: async (storeCode: string): Promise<BankAccount[]> => {
+        if (!db || !storeCode) return []
+        const snapshot = await getDocs(getStoreCollection(storeCode, STORE_COLLECTIONS.bankAccounts))
+        return snapshot.docs
+            .map(doc => convertDoc<BankAccount>(doc))
+            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     },
 
-    createBankAccount: async (data: Omit<BankAccount, 'id' | 'created_at' | 'updated_at'>): Promise<BankAccount> => {
-        if (!db) throw new Error('Firestore not configured')
-        const now = new Date().toISOString()
-        const docRef = await addDoc(collection(db, 'bank_accounts'), {
+    createBankAccount: async (storeCode: string, data: Omit<BankAccount, 'id' | 'created_at' | 'updated_at' | 'store_id'>): Promise<BankAccount> => {
+        if (!db || !storeCode) throw new Error('Firestore not configured')
+        const now = Timestamp.now()
+        const docRef = await addDoc(getStoreCollection(storeCode, STORE_COLLECTIONS.bankAccounts), {
             ...data,
             created_at: now,
             updated_at: now,
         })
         return {
-            id: docRef.id,
             ...data,
-            created_at: now,
-            updated_at: now,
+            id: docRef.id,
+            store_id: storeCode,
+            created_at: now.toDate().toISOString(),
+            updated_at: now.toDate().toISOString(),
         }
     },
 
-    updateBankAccount: async (id: string, data: Partial<BankAccount>): Promise<void> => {
-        if (!db) throw new Error('Firestore not configured')
-        await updateDoc(doc(db, 'bank_accounts', id), {
+    updateBankAccount: async (storeCode: string, id: string, data: Partial<BankAccount>): Promise<void> => {
+        if (!db || !storeCode) throw new Error('Firestore not configured')
+        await updateDoc(getStoreDoc(storeCode, STORE_COLLECTIONS.bankAccounts, id), {
             ...data,
-            updated_at: new Date().toISOString(),
+            updated_at: Timestamp.now(),
         })
     },
 
-    deleteBankAccount: async (id: string): Promise<void> => {
-        if (!db) throw new Error('Firestore not configured')
-        await deleteDoc(doc(db, 'bank_accounts', id))
+    deleteBankAccount: async (storeCode: string, id: string): Promise<void> => {
+        if (!db || !storeCode) throw new Error('Firestore not configured')
+        await deleteDoc(getStoreDoc(storeCode, STORE_COLLECTIONS.bankAccounts, id))
     },
 
     // ==================== QRIS CONFIG ====================
-    getQRISConfig: async (storeId?: string): Promise<QRISConfig | null> => {
-        if (!db) return null
-        if (storeId) {
-            const q = query(collection(db, 'qris_config'), where('store_id', '==', storeId))
-            const snapshot = await getDocs(q)
-            if (snapshot.empty) return null
-            return snapshot.docs[0].data() as QRISConfig
+    getQRISConfig: async (storeCode: string): Promise<QRISConfig | null> => {
+        if (!db || !storeCode) return null
+        const snapshot = await getDocs(getStoreCollection(storeCode, STORE_COLLECTIONS.qrisConfig))
+        if (snapshot.empty) return null
+        const data = snapshot.docs[0].data() as Record<string, unknown>
+        return {
+            store_id: storeCode,
+            enabled: (data.enabled as boolean) || false,
+            merchant_name: (data.merchant_name as string) || '',
+            merchant_id: (data.merchant_id as string) || '',
+            qris_static_code: (data.qris_static_code as string | null) ?? null,
+            qris_dynamic_enabled: (data.qris_dynamic_enabled as boolean) || false,
+            nmid: (data.nmid as string | null) ?? null,
+            api_key: (data.api_key as string | null) ?? null,
         }
-        const docRef = doc(db, 'settings', 'qris_config')
-        const docSnap = await getDoc(docRef)
-        if (!docSnap.exists()) return null
-        return docSnap.data() as QRISConfig
     },
 
-    saveQRISConfig: async (storeId: string, config: Omit<QRISConfig, 'store_id'>): Promise<void> => {
-        if (!db) throw new Error('Firestore not configured')
-
-        // Find existing config for this store
-        const q = query(collection(db, 'qris_config'), where('store_id', '==', storeId))
-        const snapshot = await getDocs(q)
+    saveQRISConfig: async (storeCode: string, config: Omit<QRISConfig, 'store_id'>): Promise<void> => {
+        if (!db || !storeCode) throw new Error('Firestore not configured')
+        const snapshot = await getDocs(getStoreCollection(storeCode, STORE_COLLECTIONS.qrisConfig))
 
         if (snapshot.empty) {
-            // Create new config
-            await addDoc(collection(db, 'qris_config'), {
-                store_id: storeId,
-                ...config
-            })
+            await addDoc(getStoreCollection(storeCode, STORE_COLLECTIONS.qrisConfig), config)
         } else {
-            // Update existing
-            const docRef = doc(db, 'qris_config', snapshot.docs[0].id)
-            await updateDoc(docRef, { ...config })
+            await updateDoc(snapshot.docs[0].ref, { ...config })
         }
     },
 
     // ==================== RECEIPT SETTINGS ====================
-    getReceiptSettings: async (storeId?: string): Promise<ReceiptSettings | null> => {
-        if (!db) return null
-        if (storeId) {
-            const q = query(collection(db, 'receipt_settings'), where('store_id', '==', storeId))
-            const snapshot = await getDocs(q)
-            if (snapshot.empty) return null
-            return snapshot.docs[0].data() as ReceiptSettings
+    getReceiptSettings: async (storeCode: string): Promise<ReceiptSettings | null> => {
+        if (!db || !storeCode) return null
+        const snapshot = await getDocs(getStoreCollection(storeCode, STORE_COLLECTIONS.receiptSettings))
+        if (snapshot.empty) return null
+        const data = snapshot.docs[0].data() as Record<string, unknown>
+        return {
+            store_id: storeCode,
+            show_logo: (data.show_logo as boolean) || false,
+            logo_url: (data.logo_url as string | null) ?? null,
+            show_store_name: (data.show_store_name as boolean) ?? true,
+            show_store_address: (data.show_store_address as boolean) ?? true,
+            show_store_phone: (data.show_store_phone as boolean) ?? true,
+            show_invoice_number: (data.show_invoice_number as boolean) ?? true,
+            show_date_time: (data.show_date_time as boolean) ?? true,
+            show_item_details: (data.show_item_details as boolean) ?? true,
+            show_payment_method: (data.show_payment_method as boolean) ?? true,
+            show_change: (data.show_change as boolean) ?? true,
+            footer_text: (data.footer_text as string) || 'Terima kasih atas kunjungan Anda!',
+            show_footer: (data.show_footer as boolean) ?? true,
+            template_preset: (data.template_preset as 'simple' | 'standard' | 'detailed') || 'standard',
         }
-        const docRef = doc(db, 'settings', 'receipt')
-        const docSnap = await getDoc(docRef)
-        if (!docSnap.exists()) return null
-        return docSnap.data() as ReceiptSettings
     },
 
-    saveReceiptSettings: async (storeId: string, settings: Omit<ReceiptSettings, 'store_id'>): Promise<void> => {
-        if (!db) throw new Error('Firestore not configured')
-
-        // Find existing settings for this store
-        const q = query(collection(db, 'receipt_settings'), where('store_id', '==', storeId))
-        const snapshot = await getDocs(q)
+    saveReceiptSettings: async (storeCode: string, settings: Omit<ReceiptSettings, 'store_id'>): Promise<void> => {
+        if (!db || !storeCode) throw new Error('Firestore not configured')
+        const snapshot = await getDocs(getStoreCollection(storeCode, STORE_COLLECTIONS.receiptSettings))
 
         if (snapshot.empty) {
-            // Create new settings
-            await addDoc(collection(db, 'receipt_settings'), {
-                store_id: storeId,
-                ...settings
-            })
+            await addDoc(getStoreCollection(storeCode, STORE_COLLECTIONS.receiptSettings), settings)
         } else {
-            // Update existing
-            const docRef = doc(db, 'receipt_settings', snapshot.docs[0].id)
-            await updateDoc(docRef, { ...settings })
+            await updateDoc(snapshot.docs[0].ref, { ...settings })
         }
-    },
-
-    getSettingsByStoreCode: async (storeCode: string): Promise<Settings | null> => {
-        if (!db) return null
-        const q = query(collection(db, COLLECTIONS.settings), where('store_code', '==', storeCode))
-        const snapshot = await getDocs(q)
-        if (snapshot.empty) return null
-        return convertDoc<Settings>(snapshot.docs[0])
     },
 
     // ==================== SETTLEMENTS ====================
-    getLastSettlement: async (storeId: string): Promise<{ id: string; settled_at: string; cashier_id?: string; cashier_name?: string } | null> => {
-        if (!db) return null
-        // Fetch all settlements for this store and sort client-side to avoid composite index requirement
-        const q = query(
-            collection(db, COLLECTIONS.settlements),
-            where('store_id', '==', storeId)
-        )
-        const snapshot = await getDocs(q)
+    getLastSettlement: async (storeCode: string): Promise<{ id: string; settled_at: string; cashier_name?: string } | null> => {
+        if (!db || !storeCode) return null
+        const snapshot = await getDocs(getStoreCollection(storeCode, STORE_COLLECTIONS.settlements))
         if (snapshot.empty) return null
 
-        // Sort by settled_at descending and get the first (most recent)
         const settlements = snapshot.docs.map(doc => {
             const data = doc.data() as Record<string, unknown>
             return {
                 id: doc.id,
                 settled_at: data.settled_at as string,
-                cashier_id: data.cashier_id as string | undefined,
                 cashier_name: data.cashier_name as string | undefined
             }
-        }).sort((a, b) => {
-            const dateA = new Date(a.settled_at).getTime()
-            const dateB = new Date(b.settled_at).getTime()
-            return dateB - dateA
-        })
+        }).sort((a, b) => new Date(b.settled_at).getTime() - new Date(a.settled_at).getTime())
 
         return settlements[0]
     },
 
-    createSettlement: async (data: {
-        store_id: string
-        cashier_id?: string
-        cashier_name?: string
-        cash_sales: number
-        transfer_sales: number
-        qris_sales: number
-        total_sales: number
-        actual_cash: number
-        difference: number
-        transaction_count: number
-    }): Promise<{ id: string; settled_at: string }> => {
-        if (!db) throw new Error('Firebase not configured')
-        const now = new Date().toISOString()
-        const docRef = await addDoc(collection(db, COLLECTIONS.settlements), {
-            ...data,
-            settled_at: now,
-            created_at: now
-        })
-        return { id: docRef.id, settled_at: now }
-    },
-
-    getTodaySettlements: async (storeId: string): Promise<Array<{
+    getTodaySettlements: async (storeCode: string): Promise<Array<{
         id: string
         settled_at: string
         cashier_name: string
@@ -823,21 +692,14 @@ export const firestoreService = {
         transaction_count: number
         difference: number
     }>> => {
-        if (!db) return []
-
-        const q = query(
-            collection(db, COLLECTIONS.settlements),
-            where('store_id', '==', storeId)
-        )
-        const snapshot = await getDocs(q)
+        if (!db || !storeCode) return []
+        const snapshot = await getDocs(getStoreCollection(storeCode, STORE_COLLECTIONS.settlements))
         if (snapshot.empty) return []
 
-        // Get today's start
         const now = new Date()
         const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0)
 
-        // Filter and map settlements from today
-        const settlements = snapshot.docs
+        return snapshot.docs
             .map(doc => {
                 const data = doc.data() as Record<string, unknown>
                 return {
@@ -854,8 +716,58 @@ export const firestoreService = {
             })
             .filter(s => new Date(s.settled_at) >= todayStart)
             .sort((a, b) => new Date(b.settled_at).getTime() - new Date(a.settled_at).getTime())
+    },
 
-        return settlements
+    createSettlement: async (storeCode: string, data: {
+        cashier_id?: string
+        cashier_name?: string
+        cash_sales: number
+        transfer_sales: number
+        qris_sales: number
+        total_sales: number
+        actual_cash: number
+        difference: number
+        transaction_count: number
+    }): Promise<{ id: string; settled_at: string }> => {
+        if (!db || !storeCode) throw new Error('Firebase not configured')
+        const now = new Date().toISOString()
+        const docRef = await addDoc(getStoreCollection(storeCode, STORE_COLLECTIONS.settlements), {
+            ...data,
+            settled_at: now,
+            created_at: now
+        })
+        return { id: docRef.id, settled_at: now }
+    },
+
+    // ==================== DANGER ZONE ====================
+    deleteAllProductsAndTransactions: async (storeCode: string): Promise<{ productsDeleted: number; transactionsDeleted: number }> => {
+        if (!db || !storeCode) throw new Error('Firestore not configured')
+        const batch = writeBatch(db)
+        let productsDeleted = 0
+        let transactionsDeleted = 0
+
+        // Delete all products
+        const productsSnapshot = await getDocs(getStoreCollection(storeCode, STORE_COLLECTIONS.products))
+        productsSnapshot.docs.forEach(doc => {
+            batch.delete(doc.ref)
+            productsDeleted++
+        })
+
+        // Delete all transactions
+        const transactionsSnapshot = await getDocs(getStoreCollection(storeCode, STORE_COLLECTIONS.transactions))
+        transactionsSnapshot.docs.forEach(doc => {
+            batch.delete(doc.ref)
+            transactionsDeleted++
+        })
+
+        // Delete all transaction items
+        const itemsSnapshot = await getDocs(getStoreCollection(storeCode, STORE_COLLECTIONS.transactionItems))
+        itemsSnapshot.docs.forEach(doc => {
+            batch.delete(doc.ref)
+        })
+
+        await batch.commit()
+        return { productsDeleted, transactionsDeleted }
     },
 }
 

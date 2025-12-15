@@ -38,7 +38,7 @@ interface TransactionData {
 }
 
 export default function ReportsPage() {
-    const { storeId } = useAuth()
+    const { storeCode } = useAuth()
     const [reportData, setReportData] = useState<ReportData | null>(null)
     const [transactions, setTransactions] = useState<TransactionData[]>([])
     const [loading, setLoading] = useState(true)
@@ -51,10 +51,10 @@ export default function ReportsPage() {
     const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today')
 
     useEffect(() => {
-        if (!storeId) return
+        if (!storeCode) return
         fetchReportData()
         setHasWebAppUrl(!!getWebAppUrl())
-    }, [period, storeId])
+    }, [period, storeCode])
 
     const getDateRange = () => {
         const now = new Date()
@@ -78,16 +78,16 @@ export default function ReportsPage() {
     }
 
     const fetchReportData = async () => {
-        if (!storeId) return
+        if (!storeCode) return
         setLoading(true)
         try {
             const { start, end } = getDateRange()
 
             // Fetch from Firestore
             const [allTransactions, allItems, allProducts] = await Promise.all([
-                firestoreService.getTransactions(storeId),
-                firestoreService.getTransactionItems(storeId),
-                firestoreService.getProducts(storeId)
+                firestoreService.getTransactions(storeCode),
+                firestoreService.getTransactionItems(storeCode),
+                firestoreService.getProducts(storeCode)
             ])
 
             // Create product cost price map for profit calculation
@@ -183,8 +183,8 @@ export default function ReportsPage() {
         setExporting(true)
         try {
             // Fetch categories and products for category grouping
-            const categories = await firestoreService.getCategories(storeId || undefined)
-            const products = await firestoreService.getProducts(storeId || undefined)
+            const categories = await firestoreService.getCategories(storeCode!)
+            const products = await firestoreService.getProducts(storeCode!)
 
             // Helper to escape CSV fields
             const escapeCSV = (val: any) => {

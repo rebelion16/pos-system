@@ -7,6 +7,7 @@ import { firestoreService } from '@/lib/firebase/firestore'
 import { rtdb } from '@/lib/firebase/config'
 
 interface UseRealtimeProductsOptions {
+    storeCode?: string | null  // Required store code for data access
     autoSync?: boolean  // Automatically sync Firestore to RTDB on mount
     onStockChange?: (changes: { productId: string; stock: number }[]) => void
 }
@@ -29,7 +30,7 @@ interface UseRealtimeProductsReturn {
  * - Fallback to Firestore if RTDB not available
  */
 export function useRealtimeProducts(options: UseRealtimeProductsOptions = {}): UseRealtimeProductsReturn {
-    const { autoSync = false, onStockChange } = options
+    const { storeCode, autoSync = false, onStockChange } = options
 
     const [products, setProducts] = useState<Product[]>([])
     const [loading, setLoading] = useState(true)
@@ -38,27 +39,34 @@ export function useRealtimeProducts(options: UseRealtimeProductsOptions = {}): U
 
     // Sync Firestore products to Realtime Database
     const syncToRealtime = useCallback(async () => {
+        if (!storeCode) return
         try {
-            const firestoreProducts = await firestoreService.getProducts()
+            const firestoreProducts = await firestoreService.getProducts(storeCode)
             await realtimeProductService.syncProducts(firestoreProducts)
             console.log('[useRealtimeProducts] Synced', firestoreProducts.length, 'products to RTDB')
         } catch (err) {
             console.error('[useRealtimeProducts] Sync error:', err)
             setError('Gagal sync ke Realtime Database')
         }
-    }, [])
+    }, [storeCode])
 
     // Refresh products from Firestore
     const refreshProducts = useCallback(async () => {
+        if (!storeCode) return
         try {
-            const firestoreProducts = await firestoreService.getProducts()
+            const firestoreProducts = await firestoreService.getProducts(storeCode)
             setProducts(firestoreProducts)
         } catch (err) {
             console.error('[useRealtimeProducts] Refresh error:', err)
         }
-    }, [])
+    }, [storeCode])
 
     useEffect(() => {
+        if (!storeCode) {
+            setLoading(false)
+            return
+        }
+
         let unsubscribeProducts: (() => void) | null = null
         let unsubscribeStock: (() => void) | null = null
 
@@ -88,7 +96,7 @@ export function useRealtimeProducts(options: UseRealtimeProductsOptions = {}): U
                 // Fallback to Firestore
                 console.log('[useRealtimeProducts] RTDB not available, using Firestore')
                 try {
-                    const firestoreProducts = await firestoreService.getProducts()
+                    const firestoreProducts = await firestoreService.getProducts(storeCode)
                     setProducts(firestoreProducts)
                     setIsRealtime(false)
                 } catch (err) {
@@ -105,7 +113,7 @@ export function useRealtimeProducts(options: UseRealtimeProductsOptions = {}): U
             if (unsubscribeProducts) unsubscribeProducts()
             if (unsubscribeStock) unsubscribeStock()
         }
-    }, [autoSync, onStockChange, syncToRealtime])
+    }, [storeCode, autoSync, onStockChange, syncToRealtime])
 
     return {
         products,
@@ -135,3 +143,4 @@ export function useRealtimeStock(onStockChange: (productId: string, newStock: nu
 }
 
 export default useRealtimeProducts
+

@@ -32,6 +32,7 @@ interface AuthContextType {
     user: User | null
     firebaseUser: FirebaseUser | null
     storeId: string | null  // Current store ID for data filtering
+    storeCode: string | null  // Current store code for nested collections
     loading: boolean
     isConfigured: boolean
     signIn: (email: string, password: string) => Promise<{ error: Error | null }>
@@ -73,8 +74,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     email: '',
                     name: cashierData.name,
                     role: 'cashier',
-                    storeId: cashierData.storeId || '',
-                    storeCode: null,
+                    storeId: cashierData.storeCode || '',  // Use storeCode as storeId
+                    storeCode: cashierData.storeCode || null,  // Primary identifier
                     avatar_url: null,
                     email_verified: true,
                     loginType: 'cashier',
@@ -255,36 +256,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 return { error: new Error('Username, password, atau kode toko salah') }
             }
 
-            // Get store_id - try multiple sources for robustness
-            let storeId = cashier.store_id || ''
-
-            if (!storeId) {
-                // Priority 1: Settings (most reliable, store_code is saved here)
-                const storeSettings = await firestoreService.getSettingsByStoreCode(cashier.store_code)
-                if (storeSettings) {
-                    storeId = storeSettings.store_id
-                }
-            }
-
-            if (!storeId) {
-                // Priority 2: User document (legacy support)
-                const storeOwner = await firestoreService.getUserByStoreCode(cashier.store_code)
-                if (storeOwner) {
-                    storeId = storeOwner.id
-                }
-            }
-
-            if (!storeId) {
-                return { error: new Error('Data toko tidak ditemukan untuk kode ini. Pastikan pemilik sudah mengatur Kode Toko di Pengaturan.') }
-            }
-
-            // Store cashier session WITH storeId for proper restoration
+            // Store cashier session with storeCode for proper restoration
             sessionStorage.setItem(CASHIER_SESSION_KEY, JSON.stringify({
                 id: cashier.id,
                 name: cashier.name,
                 username: cashier.username,
-                storeCode: cashier.store_code,
-                storeId: storeId
+                storeCode: storeCode,  // Use the storeCode from login
             }))
 
             setUser({
@@ -292,8 +269,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 email: '',
                 name: cashier.name,
                 role: 'cashier',
-                storeId: storeId,
-                storeCode: null,
+                storeId: storeCode,  // Use storeCode as storeId for backward compatibility
+                storeCode: storeCode,  // Primary identifier for nested collections
                 avatar_url: null,
                 email_verified: true,
                 loginType: 'cashier',
@@ -335,6 +312,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 user: null,
                 firebaseUser: null,
                 storeId: null,
+                storeCode: null,
                 loading: true,
                 isConfigured: isFirebaseConfigured,
                 signIn,
@@ -354,6 +332,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             user,
             firebaseUser,
             storeId: user?.storeId || null,
+            storeCode: user?.storeCode || null,
             loading,
             isConfigured: isFirebaseConfigured,
             signIn,

@@ -56,7 +56,7 @@ interface CartItem {
 }
 
 export default function POSPage() {
-    const { user, storeId } = useAuth()
+    const { user, storeCode } = useAuth()
     const [products, setProducts] = useState<ProductWithRelations[]>([])
     const [categories, setCategories] = useState<Category[]>([])
     const [cart, setCart] = useState<CartItem[]>([])
@@ -97,26 +97,26 @@ export default function POSPage() {
     const barcodeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
     useEffect(() => {
-        if (!storeId) return
+        if (!storeCode) return
         loadAllData()
 
         // Focus search on mount
         if (searchRef.current) {
             searchRef.current.focus()
         }
-    }, [storeId])
+    }, [storeCode])
 
     const loadAllData = async () => {
-        if (!storeId) return
+        if (!storeCode) return
         try {
             // Fetch ALL data in parallel for maximum performance
             const [productsData, categoriesData, accounts, qris, settings, receiptConfig] = await Promise.all([
-                firestoreService.getActiveProductsWithRelations(storeId),
-                firestoreService.getCategories(storeId),
-                firestoreService.getBankAccounts(storeId),
-                firestoreService.getQRISConfig(storeId),
-                firestoreService.getSettings(storeId),
-                firestoreService.getReceiptSettings(storeId),
+                firestoreService.getActiveProductsWithRelations(storeCode),
+                firestoreService.getCategories(storeCode),
+                firestoreService.getBankAccounts(storeCode),
+                firestoreService.getQRISConfig(storeCode),
+                firestoreService.getSettings(storeCode),
+                firestoreService.getReceiptSettings(storeCode),
             ])
 
             // Set products and categories
@@ -148,13 +148,13 @@ export default function POSPage() {
     }
 
     const fetchPaymentSettings = async () => {
-        if (!storeId) return
+        if (!storeCode) return
         try {
             const [accounts, qris, settings, receiptConfig] = await Promise.all([
-                firestoreService.getBankAccounts(storeId),
-                firestoreService.getQRISConfig(storeId),
-                firestoreService.getSettings(storeId),
-                firestoreService.getReceiptSettings(storeId),
+                firestoreService.getBankAccounts(storeCode),
+                firestoreService.getQRISConfig(storeCode),
+                firestoreService.getSettings(storeCode),
+                firestoreService.getReceiptSettings(storeCode),
             ])
             setBankAccounts(accounts.filter(a => a.is_active))
             setQrisConfig(qris)
@@ -177,9 +177,9 @@ export default function POSPage() {
     }
 
     const fetchProducts = async () => {
-        if (!storeId) return
+        if (!storeCode) return
         try {
-            const data = await firestoreService.getActiveProductsWithRelations(storeId)
+            const data = await firestoreService.getActiveProductsWithRelations(storeCode)
             setProducts(data)
         } catch (err) {
             console.warn('Error fetching products:', err)
@@ -190,8 +190,8 @@ export default function POSPage() {
     }
 
     const fetchCategories = async () => {
-        if (!storeId) return
-        const data = await firestoreService.getCategories(storeId)
+        if (!storeCode) return
+        const data = await firestoreService.getCategories(storeCode)
         setCategories(data)
     }
 
@@ -410,8 +410,7 @@ export default function POSPage() {
             }))
 
             // Create transaction using Firestore
-            await firestoreService.createTransaction({
-                store_id: storeId || user?.storeId || '',
+            await firestoreService.createTransaction(storeCode!, {
                 user_id: user?.id || '',
                 invoice_number: invoiceNumber,
                 subtotal: calculateSubtotal(),

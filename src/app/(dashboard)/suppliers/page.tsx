@@ -19,7 +19,7 @@ import { useAuth } from '@/hooks/useAuth'
 import styles from './suppliers.module.css'
 
 export default function SuppliersPage() {
-    const { storeId } = useAuth()
+    const { storeCode } = useAuth()
     const [suppliers, setSuppliers] = useState<Supplier[]>([])
     const [loading, setLoading] = useState(true)
     const [searchQuery, setSearchQuery] = useState('')
@@ -34,14 +34,14 @@ export default function SuppliersPage() {
     const [address, setAddress] = useState('')
 
     useEffect(() => {
-        if (!storeId) return
+        if (!storeCode) return
         fetchSuppliers()
-    }, [storeId])
+    }, [storeCode])
 
     const fetchSuppliers = async () => {
-        if (!storeId) return
+        if (!storeCode) return
         try {
-            const data = await firestoreService.getSuppliers(storeId)
+            const data = await firestoreService.getSuppliers(storeCode)
             // Sort by name
             data.sort((a, b) => a.name.localeCompare(b.name))
             setSuppliers(data)
@@ -98,9 +98,9 @@ export default function SuppliersPage() {
             }
 
             if (editingSupplier) {
-                await firestoreService.updateSupplier(editingSupplier.id, supplierData)
+                await firestoreService.updateSupplier(storeCode!, editingSupplier.id, supplierData)
             } else {
-                await firestoreService.createSupplier({ ...supplierData, store_id: storeId! })
+                await firestoreService.createSupplier(storeCode!, supplierData)
             }
 
             await fetchSuppliers()
@@ -116,7 +116,7 @@ export default function SuppliersPage() {
         if (!confirm('Apakah Anda yakin ingin menghapus supplier ini?')) return
 
         try {
-            await firestoreService.deleteSupplier(id)
+            await firestoreService.deleteSupplier(storeCode!, id)
             setSuppliers(suppliers.filter(s => s.id !== id))
         } catch (error) {
             console.error('Error deleting supplier:', error)

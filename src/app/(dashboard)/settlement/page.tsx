@@ -33,7 +33,7 @@ interface SettlementHistoryItem {
 }
 
 export default function SettlementPage() {
-    const { user, storeId } = useAuth()
+    const { user, storeCode } = useAuth()
     const [data, setData] = useState<SettlementData>({
         cashSales: 0,
         transferSales: 0,
@@ -49,23 +49,23 @@ export default function SettlementPage() {
     const [todaySettlements, setTodaySettlements] = useState<SettlementHistoryItem[]>([])
 
     useEffect(() => {
-        if (!storeId) return
+        if (!storeCode) return
         fetchData()
-    }, [storeId])
+    }, [storeCode])
 
     const fetchData = async () => {
-        if (!storeId) return
+        if (!storeCode) return
         try {
             // Get last settlement and today's history
             const [last, history] = await Promise.all([
-                firestoreService.getLastSettlement(storeId),
-                firestoreService.getTodaySettlements(storeId)
+                firestoreService.getLastSettlement(storeCode),
+                firestoreService.getTodaySettlements(storeCode)
             ])
             setLastSettlement(last)
             setTodaySettlements(history)
 
             // Get all transactions
-            const transactions = await firestoreService.getTransactions(storeId)
+            const transactions = await firestoreService.getTransactions(storeCode)
 
             // Filter completed transactions
             const completedTx = transactions.filter(tx => tx.payment_status === 'completed')
@@ -85,7 +85,7 @@ export default function SettlementPage() {
             }
 
             console.log('=== Settlement Debug ===')
-            console.log('Store ID:', storeId)
+            console.log('Store Code:', storeCode)
             console.log('Last settlement:', last)
             console.log('Cutoff time:', cutoffTime.toISOString())
             console.log('Total transactions:', transactions.length)
@@ -152,12 +152,11 @@ export default function SettlementPage() {
     const isMatch = Math.abs(difference) < 1
 
     const handleSettle = async () => {
-        if (!storeId || settling) return
+        if (!storeCode || settling) return
 
         setSettling(true)
         try {
-            await firestoreService.createSettlement({
-                store_id: storeId,
+            await firestoreService.createSettlement(storeCode!, {
                 cashier_id: user?.cashierId || user?.id,
                 cashier_name: user?.name || 'Unknown',
                 cash_sales: data.cashSales,

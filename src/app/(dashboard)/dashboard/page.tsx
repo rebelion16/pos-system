@@ -34,7 +34,7 @@ interface RecentTransaction {
 }
 
 export default function DashboardPage() {
-    const { user, storeId } = useAuth()
+    const { user, storeCode } = useAuth()
     const [stats, setStats] = useState<DashboardStats>({
         todaySales: 0,
         todayTransactions: 0,
@@ -49,18 +49,18 @@ export default function DashboardPage() {
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
-        if (!storeId) return
+        if (!storeCode) return
         fetchDashboardData()
-    }, [storeId])
+    }, [storeCode])
 
     const fetchDashboardData = async () => {
-        if (!storeId) return
+        if (!storeCode) return
         try {
             // Get data from Firestore
             const [products, transactions, transactionItems] = await Promise.all([
-                firestoreService.getProducts(storeId),
-                firestoreService.getTransactions(storeId),
-                firestoreService.getTransactionItems(storeId)
+                firestoreService.getProducts(storeCode),
+                firestoreService.getTransactions(storeCode),
+                firestoreService.getTransactionItems(storeCode)
             ])
 
             // Create product cost price map for profit calculation

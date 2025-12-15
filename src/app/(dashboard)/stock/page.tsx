@@ -8,21 +8,21 @@ import { useAuth } from '@/hooks/useAuth'
 import styles from './stock.module.css'
 
 export default function StockPage() {
-    const { storeId } = useAuth()
+    const { storeCode } = useAuth()
     const [products, setProducts] = useState<ProductWithRelations[]>([])
     const [loading, setLoading] = useState(true)
     const [searchQuery, setSearchQuery] = useState('')
     const [filter, setFilter] = useState<'all' | 'low'>('all')
 
     useEffect(() => {
-        if (!storeId) return
+        if (!storeCode) return
         fetchProducts()
-    }, [storeId])
+    }, [storeCode])
 
     const fetchProducts = async () => {
-        if (!storeId) return
+        if (!storeCode) return
         try {
-            const data = await firestoreService.getProductsWithRelations(storeId)
+            const data = await firestoreService.getProductsWithRelations(storeCode)
             const activeProducts = data
                 .filter(p => p.is_active)
                 .sort((a, b) => a.stock - b.stock)

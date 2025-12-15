@@ -18,27 +18,27 @@ interface TransactionWithItems extends Transaction {
 }
 
 export default function TransactionsPage() {
-    const { storeId } = useAuth()
+    const { storeCode } = useAuth()
     const [transactions, setTransactions] = useState<TransactionWithItems[]>([])
     const [loading, setLoading] = useState(true)
     const [searchQuery, setSearchQuery] = useState('')
     const [dateFilter, setDateFilter] = useState('')
 
     useEffect(() => {
-        if (!storeId) return
+        if (!storeCode) return
         fetchTransactions()
         fetchSettings()
-    }, [dateFilter, storeId])
+    }, [dateFilter, storeCode])
 
     const [storeSettings, setStoreSettings] = useState<Settings | null>(null)
     const [receiptSettings, setReceiptSettings] = useState<ReceiptSettings | null>(null)
 
     const fetchSettings = async () => {
-        if (!storeId) return
+        if (!storeCode) return
         try {
             const [store, receipt] = await Promise.all([
-                firestoreService.getSettings(storeId),
-                firestoreService.getReceiptSettings(storeId)
+                firestoreService.getSettings(storeCode),
+                firestoreService.getReceiptSettings(storeCode)
             ])
             setStoreSettings(store)
             setReceiptSettings(receipt)
@@ -48,10 +48,10 @@ export default function TransactionsPage() {
     }
 
     const fetchTransactions = async () => {
-        if (!storeId) return
+        if (!storeCode) return
         try {
-            const allTransactions = await firestoreService.getTransactions(storeId)
-            const allItems = await firestoreService.getTransactionItems(storeId)
+            const allTransactions = await firestoreService.getTransactions(storeCode)
+            const allItems = await firestoreService.getTransactionItems(storeCode)
 
             // Combine transactions with their items
             let txWithItems: TransactionWithItems[] = allTransactions.map(tx => ({

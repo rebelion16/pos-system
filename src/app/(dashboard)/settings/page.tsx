@@ -42,7 +42,7 @@ type ThemeMode = 'light' | 'dark'
 type ThemeColor = 'blue' | 'green' | 'pink' | 'orange' | 'purple'
 
 export default function SettingsPage() {
-    const { storeId } = useAuth()
+    const { storeCode } = useAuth()
     const [settings, setSettings] = useState<SettingsData | null>(null)
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
@@ -53,7 +53,7 @@ export default function SettingsPage() {
     const [storeName, setStoreName] = useState('')
     const [storeAddress, setStoreAddress] = useState('')
     const [storePhone, setStorePhone] = useState('')
-    const [storeCode, setStoreCode] = useState('')
+    const [storeCodeInput, setStoreCodeInput] = useState('')
     const [taxRate, setTaxRate] = useState(0)
     const [themeMode, setThemeMode] = useState<ThemeMode>('light')
     const [themeColor, setThemeColor] = useState<ThemeColor>('blue')
@@ -62,11 +62,11 @@ export default function SettingsPage() {
     const [webAppUrlInput, setWebAppUrlInput] = useState('')
 
     useEffect(() => {
-        if (!storeId) return
+        if (!storeCode) return
         fetchSettings()
         // Load saved Web App URL
         setWebAppUrlInput(getWebAppUrl())
-    }, [storeId])
+    }, [storeCode])
 
     useEffect(() => {
         // Apply theme to document
@@ -75,9 +75,9 @@ export default function SettingsPage() {
     }, [themeMode, themeColor])
 
     const fetchSettings = async () => {
-        if (!storeId) return
+        if (!storeCode) return
         try {
-            const data = await firestoreService.getSettings(storeId)
+            const data = await firestoreService.getSettings(storeCode)
 
             if (!data) {
                 setLoading(false)
@@ -88,7 +88,7 @@ export default function SettingsPage() {
             setStoreName(data.store_name)
             setStoreAddress(data.store_address || '')
             setStorePhone(data.store_phone || '')
-            setStoreCode(data.store_code || '')
+            setStoreCodeInput(data.store_code || '')
             setTaxRate(data.tax_rate)
             setPrinterEnabled(data.printer_enabled)
             setPrinterName(data.printer_name || '')
@@ -112,14 +112,14 @@ export default function SettingsPage() {
                 store_name: storeName,
                 store_address: storeAddress || null,
                 store_phone: storePhone || null,
-                store_code: storeCode || null,
+                store_code: storeCodeInput || null,
                 tax_rate: taxRate,
                 theme: themeValue,
                 printer_enabled: printerEnabled,
                 printer_name: printerName || null,
             }
 
-            await firestoreService.updateSettings(storeId!, settingsData)
+            await firestoreService.updateSettings(storeCode!, settingsData)
 
             setShowSaved(true)
             setTimeout(() => setShowSaved(false), 3000)
@@ -192,8 +192,8 @@ export default function SettingsPage() {
                             <input
                                 type="text"
                                 className={styles.input}
-                                value={storeCode}
-                                onChange={(e) => setStoreCode(e.target.value.toUpperCase())}
+                                value={storeCodeInput}
+                                onChange={(e) => setStoreCodeInput(e.target.value.toUpperCase())}
                                 placeholder="Contoh: TOKO123"
                                 style={{ textTransform: 'uppercase' }}
                             />
@@ -500,7 +500,7 @@ export default function SettingsPage() {
                                     if (confirm('Konfirmasi sekali lagi: Data akan DIHAPUS PERMANEN dan tidak bisa dikembalikan!')) {
                                         setDeleting(true)
                                         try {
-                                            const result = await firestoreService.deleteAllProductsAndTransactions()
+                                            const result = await firestoreService.deleteAllProductsAndTransactions(storeCode!)
                                             alert(`Berhasil menghapus ${result.productsDeleted} produk dan ${result.transactionsDeleted} transaksi.`)
                                             window.location.reload()
                                         } catch (error) {

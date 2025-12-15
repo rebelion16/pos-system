@@ -21,7 +21,7 @@ import { useAuth } from '@/hooks/useAuth'
 import styles from './products.module.css'
 
 export default function ProductsPage() {
-    const { storeId } = useAuth()
+    const { storeCode } = useAuth()
     const [products, setProducts] = useState<ProductWithRelations[]>([])
     const [categories, setCategories] = useState<Category[]>([])
     const [loading, setLoading] = useState(true)
@@ -48,15 +48,15 @@ export default function ProductsPage() {
     const [lookupResult, setLookupResult] = useState<ProductApiResponse | null>(null)
 
     useEffect(() => {
-        if (!storeId) return
+        if (!storeCode) return
         fetchProducts()
         fetchCategories()
-    }, [storeId])
+    }, [storeCode])
 
     const fetchProducts = async () => {
-        if (!storeId) return
+        if (!storeCode) return
         try {
-            const data = await firestoreService.getProductsWithRelations(storeId)
+            const data = await firestoreService.getProductsWithRelations(storeCode)
             setProducts(data)
         } catch (err) {
             console.warn('Error fetching products:', err)
@@ -67,8 +67,8 @@ export default function ProductsPage() {
     }
 
     const fetchCategories = async () => {
-        if (!storeId) return
-        const data = await firestoreService.getCategories(storeId)
+        if (!storeCode) return
+        const data = await firestoreService.getCategories(storeCode)
         setCategories(data)
     }
 
@@ -94,9 +94,9 @@ export default function ProductsPage() {
             }
 
             if (editingProduct) {
-                await firestoreService.updateProduct(editingProduct.id, productData)
+                await firestoreService.updateProduct(storeCode!, editingProduct.id, productData)
             } else {
-                await firestoreService.createProduct({ ...productData, store_id: storeId! })
+                await firestoreService.createProduct(storeCode!, productData)
             }
 
             setShowModal(false)
@@ -131,7 +131,7 @@ export default function ProductsPage() {
         if (!confirm(`Hapus produk "${product.name}"?`)) return
 
         try {
-            await firestoreService.deleteProduct(product.id)
+            await firestoreService.deleteProduct(storeCode!, product.id)
             fetchProducts()
         } catch (error) {
             console.error('Error deleting product:', error)

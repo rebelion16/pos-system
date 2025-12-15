@@ -37,7 +37,7 @@ const BANK_LIST = [
 ]
 
 export default function PaymentSettingsPage() {
-    const { storeId } = useAuth()
+    const { storeCode } = useAuth()
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
     const [showSaved, setShowSaved] = useState(false)
@@ -65,16 +65,16 @@ export default function PaymentSettingsPage() {
     })
 
     useEffect(() => {
-        if (!storeId) return
+        if (!storeCode) return
         fetchData()
-    }, [storeId])
+    }, [storeCode])
 
     const fetchData = async () => {
-        if (!storeId) return
+        if (!storeCode) return
         try {
             const [accounts, qris] = await Promise.all([
-                firestoreService.getBankAccounts(storeId),
-                firestoreService.getQRISConfig(storeId),
+                firestoreService.getBankAccounts(storeCode),
+                firestoreService.getQRISConfig(storeCode),
             ])
             setBankAccounts(accounts)
             if (qris) setQrisConfig(qris)
@@ -109,7 +109,7 @@ export default function PaymentSettingsPage() {
     }
 
     const saveBank = async () => {
-        if (!storeId) {
+        if (!storeCode) {
             alert('Sesi toko tidak ditemukan. Silakan refresh halaman.')
             return
         }
@@ -122,12 +122,9 @@ export default function PaymentSettingsPage() {
         setSaving(true)
         try {
             if (editingBank) {
-                await firestoreService.updateBankAccount(editingBank.id, bankForm)
+                await firestoreService.updateBankAccount(storeCode!, editingBank.id, bankForm)
             } else {
-                await firestoreService.createBankAccount({
-                    ...bankForm,
-                    store_id: storeId
-                })
+                await firestoreService.createBankAccount(storeCode!, bankForm)
             }
             await fetchData()
             setShowBankModal(false)
@@ -143,7 +140,7 @@ export default function PaymentSettingsPage() {
     const deleteBank = async (id: string) => {
         if (!confirm('Hapus rekening bank ini?')) return
         try {
-            await firestoreService.deleteBankAccount(id)
+            await firestoreService.deleteBankAccount(storeCode!, id)
             await fetchData()
         } catch (error) {
             console.error('Error deleting bank:', error)
@@ -152,13 +149,13 @@ export default function PaymentSettingsPage() {
 
     // QRIS Handlers
     const saveQRIS = async () => {
-        if (!storeId) {
+        if (!storeCode) {
             alert('Sesi toko tidak ditemukan. Silakan refresh halaman.')
             return
         }
         setSaving(true)
         try {
-            await firestoreService.saveQRISConfig(storeId, qrisConfig)
+            await firestoreService.saveQRISConfig(storeCode, qrisConfig)
             showSavedToast()
         } catch (error) {
             console.error('Error saving QRIS:', error)
