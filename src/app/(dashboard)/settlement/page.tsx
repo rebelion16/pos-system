@@ -43,57 +43,51 @@ export default function SettlementPage() {
     const fetchData = async () => {
         if (!storeId) return
         try {
-            // Get last settlement
+            // Get last settlement first
             const last = await firestoreService.getLastSettlement(storeId)
             setLastSettlement(last)
 
             // Get all transactions
             const transactions = await firestoreService.getTransactions(storeId)
 
+            // Filter completed transactions
+            const completedTx = transactions.filter(tx => tx.payment_status === 'completed')
+
+            // Determine the cutoff time - either last settlement or start of today
+            const now = new Date()
+            const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0)
+
+            // Use last settlement time as cutoff if exists and is today, otherwise use today start
+            let cutoffTime = todayStart
+            if (last) {
+                const lastSettledAt = new Date(last.settled_at)
+                // If last settlement was today, use that time as cutoff
+                if (lastSettledAt >= todayStart) {
+                    cutoffTime = lastSettledAt
+                }
+            }
+
             console.log('=== Settlement Debug ===')
             console.log('Store ID:', storeId)
             console.log('Last settlement:', last)
-            console.log('Total transactions from DB:', transactions.length)
+            console.log('Cutoff time:', cutoffTime.toISOString())
+            console.log('Total transactions:', transactions.length)
 
-            // Show all today's completed transactions
-            const completedTx = transactions.filter(tx => tx.payment_status === 'completed')
-            console.log('Completed transactions:', completedTx.length)
-
-            // Log all transactions for debugging
-            if (transactions.length > 0) {
-                console.log('Sample transaction:', transactions[0])
-                console.log('All transaction dates:', transactions.map(tx => ({
-                    id: tx.id,
-                    created_at: tx.created_at,
-                    status: tx.payment_status,
-                    total: tx.total
-                })))
-            }
-
-            // Get today's start and end in local timezone
-            const now = new Date()
-            const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0)
-            const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
-
-            console.log('Now:', now.toISOString(), 'Local:', now.toLocaleString('id-ID'))
-            console.log('Today start:', todayStart.toISOString())
-            console.log('Today end:', todayEnd.toISOString())
-
-            // Filter today's transactions
-            const todayTx = completedTx.filter(tx => {
+            // Filter transactions that are:
+            // 1. Completed
+            // 2. Created AFTER the cutoff time (last settlement or today start)
+            const unsettledTx = completedTx.filter(tx => {
                 const txDate = new Date(tx.created_at)
-                const isToday = txDate >= todayStart && txDate <= todayEnd
-                console.log(`TX ${tx.id}: ${tx.created_at} -> ${txDate.toLocaleString('id-ID')} | isToday: ${isToday}`)
-                return isToday
+                return txDate > cutoffTime
             })
 
-            console.log('Today transactions:', todayTx.length)
+            console.log('Unsettled transactions:', unsettledTx.length)
 
             let cashSales = 0
             let transferSales = 0
             let qrisSales = 0
 
-            todayTx.forEach(tx => {
+            unsettledTx.forEach(tx => {
                 if (tx.payment_method === 'cash') {
                     cashSales += tx.total
                 } else if (tx.payment_method === 'transfer') {
@@ -108,7 +102,7 @@ export default function SettlementPage() {
                 transferSales,
                 qrisSales,
                 totalSales: cashSales + transferSales + qrisSales,
-                transactionCount: todayTx.length
+                transactionCount: unsettledTx.length
             })
         } catch (error) {
             console.error('Error fetching sales data:', error)
