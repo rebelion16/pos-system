@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Calculator, DollarSign, CreditCard, Check, AlertCircle, Clock } from 'lucide-react'
+import { Calculator, DollarSign, CreditCard, Check, AlertCircle, Clock, History, User } from 'lucide-react'
 import { firestoreService } from '@/lib/firebase/firestore'
 import { useAuth } from '@/hooks/useAuth'
 import styles from './settlement.module.css'
@@ -20,6 +20,18 @@ interface LastSettlement {
     cashier_name?: string
 }
 
+interface SettlementHistoryItem {
+    id: string
+    settled_at: string
+    cashier_name: string
+    total_sales: number
+    cash_sales: number
+    transfer_sales: number
+    qris_sales: number
+    transaction_count: number
+    difference: number
+}
+
 export default function SettlementPage() {
     const { user, storeId } = useAuth()
     const [data, setData] = useState<SettlementData>({
@@ -34,6 +46,7 @@ export default function SettlementPage() {
     const [settling, setSettling] = useState(false)
     const [settled, setSettled] = useState(false)
     const [lastSettlement, setLastSettlement] = useState<LastSettlement | null>(null)
+    const [todaySettlements, setTodaySettlements] = useState<SettlementHistoryItem[]>([])
 
     useEffect(() => {
         if (!storeId) return
@@ -43,9 +56,13 @@ export default function SettlementPage() {
     const fetchData = async () => {
         if (!storeId) return
         try {
-            // Get last settlement first
-            const last = await firestoreService.getLastSettlement(storeId)
+            // Get last settlement and today's history
+            const [last, history] = await Promise.all([
+                firestoreService.getLastSettlement(storeId),
+                firestoreService.getTodaySettlements(storeId)
+            ])
             setLastSettlement(last)
+            setTodaySettlements(history)
 
             // Get all transactions
             const transactions = await firestoreService.getTransactions(storeId)
@@ -324,6 +341,63 @@ export default function SettlementPage() {
                     </div>
                 </div>
             </div>
+
+            {/* Daily Settlement History */}
+            {todaySettlements.length > 0 && (
+                <div className={styles.historySection}>
+                    <h3 className={styles.historyTitle}>
+                        <History size={20} />
+                        Riwayat Settlement Hari Ini
+                    </h3>
+                    <div className={styles.historyList}>
+                        {todaySettlements.map((settlement) => (
+                            <div key={settlement.id} className={styles.historyCard}>
+                                <div className={styles.historyHeader}>
+                                    <div className={styles.historyCashier}>
+                                        <User size={16} />
+                                        <span>{settlement.cashier_name}</span>
+                                    </div>
+                                    <div className={styles.historyTime}>
+                                        <Clock size={14} />
+                                        {new Date(settlement.settled_at).toLocaleTimeString('id-ID', {
+                                            hour: '2-digit',
+                                            minute: '2-digit'
+                                        })}
+                                    </div>
+                                </div>
+                                <div className={styles.historyBody}>
+                                    <div className={styles.historyStats}>
+                                        <div className={styles.historyStat}>
+                                            <span className={styles.historyStatLabel}>Total</span>
+                                            <span className={styles.historyStatValue}>{formatCurrency(settlement.total_sales)}</span>
+                                        </div>
+                                        <div className={styles.historyStat}>
+                                            <span className={styles.historyStatLabel}>Tunai</span>
+                                            <span className={styles.historyStatValue}>{formatCurrency(settlement.cash_sales)}</span>
+                                        </div>
+                                        <div className={styles.historyStat}>
+                                            <span className={styles.historyStatLabel}>Transfer</span>
+                                            <span className={styles.historyStatValue}>{formatCurrency(settlement.transfer_sales)}</span>
+                                        </div>
+                                        <div className={styles.historyStat}>
+                                            <span className={styles.historyStatLabel}>QRIS</span>
+                                            <span className={styles.historyStatValue}>{formatCurrency(settlement.qris_sales)}</span>
+                                        </div>
+                                    </div>
+                                    <div className={styles.historyFooter}>
+                                        <span>{settlement.transaction_count} transaksi</span>
+                                        {settlement.difference !== 0 && (
+                                            <span className={settlement.difference > 0 ? styles.historyPlus : styles.historyMinus}>
+                                                {settlement.difference > 0 ? '+' : ''}{formatCurrency(settlement.difference)}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

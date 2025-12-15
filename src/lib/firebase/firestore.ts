@@ -811,6 +811,52 @@ export const firestoreService = {
         })
         return { id: docRef.id, settled_at: now }
     },
+
+    getTodaySettlements: async (storeId: string): Promise<Array<{
+        id: string
+        settled_at: string
+        cashier_name: string
+        total_sales: number
+        cash_sales: number
+        transfer_sales: number
+        qris_sales: number
+        transaction_count: number
+        difference: number
+    }>> => {
+        if (!db) return []
+
+        const q = query(
+            collection(db, COLLECTIONS.settlements),
+            where('store_id', '==', storeId)
+        )
+        const snapshot = await getDocs(q)
+        if (snapshot.empty) return []
+
+        // Get today's start
+        const now = new Date()
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0)
+
+        // Filter and map settlements from today
+        const settlements = snapshot.docs
+            .map(doc => {
+                const data = doc.data() as Record<string, unknown>
+                return {
+                    id: doc.id,
+                    settled_at: data.settled_at as string,
+                    cashier_name: (data.cashier_name as string) || 'Unknown',
+                    total_sales: (data.total_sales as number) || 0,
+                    cash_sales: (data.cash_sales as number) || 0,
+                    transfer_sales: (data.transfer_sales as number) || 0,
+                    qris_sales: (data.qris_sales as number) || 0,
+                    transaction_count: (data.transaction_count as number) || 0,
+                    difference: (data.difference as number) || 0
+                }
+            })
+            .filter(s => new Date(s.settled_at) >= todayStart)
+            .sort((a, b) => new Date(b.settled_at).getTime() - new Date(a.settled_at).getTime())
+
+        return settlements
+    },
 }
 
 export default firestoreService
