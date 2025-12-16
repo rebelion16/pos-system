@@ -1,36 +1,99 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🧾 POS System UMKM
 
-## Getting Started
+POS System UMKM adalah aplikasi **Point of Sale (POS)** berbasis digital yang dirancang khusus untuk membantu pelaku **Usaha Mikro, Kecil, dan Menengah (UMKM)** dalam mengelola transaksi penjualan, stok barang, dan laporan usaha secara **mudah, cepat, dan efisien**.
 
-First, run the development server:
+Aplikasi ini cocok digunakan oleh toko ritel, warung, kafe, dan berbagai jenis usaha UMKM lainnya yang ingin beralih dari pencatatan manual ke sistem yang lebih modern.
+
+---
+
+## ✨ Fitur Utama
+
+* 🧾 **Kasir Digital**
+  Proses transaksi penjualan yang cepat dan mudah digunakan.
+
+* 📦 **Manajemen Produk & Stok**
+  Tambah, ubah, dan pantau stok barang secara real-time.
+
+* 📊 **Laporan Penjualan Otomatis**
+  Laporan harian, mingguan, dan bulanan untuk membantu analisis bisnis.
+
+* 👥 **Manajemen Pengguna**
+  Mendukung multi-user dengan hak akses berbeda.
+
+* 💳 **Metode Pembayaran Fleksibel**
+  Mendukung pembayaran tunai dan non-tunai (opsional).
+
+---
+
+## 🎯 Manfaat untuk UMKM
+
+* Mengurangi kesalahan pencatatan manual
+* Menghemat waktu operasional
+* Membantu pemilik usaha memantau performa bisnis
+* Membuat usaha terlihat lebih profesional
+* Mendukung pengambilan keputusan berbasis data
+
+---
+
+## 🏪 Cocok Digunakan Untuk
+
+* Toko kelontong
+* Warung makan & kafe
+* Toko pakaian
+* Minimarket kecil
+* UMKM ritel dan jasa lainnya
+
+---
+
+## 🛠️ Teknologi yang Digunakan
+
+* **Backend:** FastAPI
+* **Frontend:** Web-based UI
+* **Database:** Firestore Database
+
+---
+
+## 🚀 Instalasi & Menjalankan Aplikasi
+
+### 1️⃣ Clone Repository
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone https://github.com/username/pos-system-umkm.git
+cd pos-system-umkm
+```
+### 4️⃣ Akses Aplikasi
+
+Buka browser dan akses:
+
+https://pos-system-eta-two.vercel.app/login
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 📌 Status Project
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+✅ **Stable – Siap Digunakan**
+Project ini masih terus dikembangkan untuk menambahkan fitur-fitur baru sesuai kebutuhan UMKM.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+---
 
-## Learn More
+## 🤝 Kontribusi
 
-To learn more about Next.js, take a look at the following resources:
+Kontribusi sangat terbuka! Silakan:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. Fork repository ini
+2. Buat branch baru (`feature/nama-fitur`)
+3. Commit perubahan
+4. Ajukan Pull Request
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## Deploy on Vercel
+## 📄 Lisensi
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Project ini menggunakan lisensi **MIT License**. Bebas digunakan dan dikembangkan kembali.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+
+## 🙏 Penutup
+
+POS System UMKM dibuat untuk membantu pelaku usaha kecil agar lebih siap menghadapi era digital. Semoga aplikasi ini dapat memberikan manfaat nyata dan membantu UMKM berkembang lebih baik.
+
+✨ *Dibuat dengan ❤️ untuk UMKM Indonesia* 🇮🇩
