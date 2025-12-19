@@ -503,9 +503,45 @@ export default function ProductsPage() {
             {/* Barcode Scanner Modal */}
             {showScanner && (
                 <BarcodeScanner
-                    onScan={(barcode) => {
-                        setFormData({ ...formData, barcode })
+                    onScan={async (barcode) => {
+                        // Set barcode first
+                        setFormData(prev => ({ ...prev, barcode }))
                         setShowScanner(false)
+
+                        // Automatically lookup product details from Indonesian database
+                        if (barcode && barcode.length >= 8) {
+                            setLookingUp(true)
+                            setError('')
+                            setLookupResult(null)
+
+                            try {
+                                const result = await productApiService.searchByBarcode(barcode, false)
+
+                                if (result.success && result.data && !Array.isArray(result.data)) {
+                                    const product = result.data
+                                    setLookupResult(product)
+
+                                    // Auto-generate SKU from barcode (last 6 digits)
+                                    const barcodeValue = product.barcode || barcode
+                                    const generatedSku = `SKU-${barcodeValue.slice(-6)}`
+
+                                    // Auto-fill form with data from API
+                                    setFormData(prev => ({
+                                        ...prev,
+                                        barcode: barcodeValue,
+                                        sku: prev.sku || generatedSku, // Only set if SKU is empty
+                                        name: product.name || prev.name,
+                                        description: product.description || prev.description,
+                                        price: product.price?.toString() || prev.price,
+                                    }))
+                                }
+                            } catch (err) {
+                                console.error('Auto-lookup error:', err)
+                                // Silent error - barcode is still set, user can lookup manually
+                            } finally {
+                                setLookingUp(false)
+                            }
+                        }
                     }}
                     onClose={() => setShowScanner(false)}
                 />
