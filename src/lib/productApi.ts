@@ -17,8 +17,10 @@ export interface ProductApiResponse {
     category?: string
     brand?: string
     image_url?: string
+    imgBarcode?: string | null  // From API
     weight?: string
     unit?: string
+    uom?: string  // Unit of measure from API
 }
 
 export interface ProductSearchResult {
@@ -39,6 +41,9 @@ export async function searchProductByBarcode(
     try {
         const url = `${API_BASE_URL}/products-barcode?barcode=${encodeURIComponent(barcode)}&generateBarcode=${generateBarcode}`
 
+        console.log('[Product API] Searching barcode:', barcode)
+        console.log('[Product API] URL:', url)
+
         const response = await fetch(url, {
             method: 'GET',
             headers: {
@@ -46,15 +51,25 @@ export async function searchProductByBarcode(
             },
         })
 
+        console.log('[Product API] Response status:', response.status)
+
         if (!response.ok) {
             if (response.status === 404) {
+                console.log('[Product API] Product not found (404)')
                 return { success: false, data: null, error: 'Produk tidak ditemukan' }
             }
             throw new Error(`HTTP ${response.status}`)
         }
 
         const data = await response.json()
-        return { success: true, data }
+        console.log('[Product API] Response data:', data)
+
+        // Handle both single object and array responses
+        if (data && (data.id || data.barcode || data.name)) {
+            return { success: true, data }
+        }
+
+        return { success: false, data: null, error: 'Produk tidak ditemukan' }
     } catch (error) {
         console.error('[Product API] Error searching by barcode:', error)
         return {
